@@ -1,6 +1,6 @@
 from struct import unpack
 
-class Reader:
+class binfile:
 	def __init__(self, data):
 		self.data = data
 		self.pos  = 0
@@ -53,7 +53,7 @@ class Reader:
 	def __nonzero__(self):
 		return self.pos < len(self.data)
 	
-def parse(reader):
+def tokenize(reader):
 	stack = []
 
 	h, v = 0, 0
@@ -83,7 +83,7 @@ def parse(reader):
 		elif command == 136: # put4
 			yield ("put", reader.uint32())
 
-		elif command == 136: # put_rule
+		elif command == 137: # put_rule
 			a, b = reader.uint32(), reader.uint32()
 			yield ("put_rule", (a, b))
 		elif command == 138: # nop
@@ -256,9 +256,9 @@ def parse(reader):
 			q = reader.uint32()
 			i = reader.uint8()
 			yield ("post_post", (q, i))
-		else:
+		elif command in [250,251,252,253,254,255]:
 			yield ("undefined", command)
+		else:
+			raise ValueError("command %d not recognized (it is implementation error!)" % command)
 
-reader = Reader(open('/home/wojtek/tmp/a.dvi').read())
-for item in parse(reader):
-	print item
+# vim: ts=4 sw=4
