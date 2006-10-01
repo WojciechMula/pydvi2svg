@@ -1,97 +1,95 @@
-import dviparser
-import path_element
-import fontsel as fontDB
+import sys
 import xml.dom as DOM
 
-import sys
+import dviparser
+import path_element
+import fontsel
+
+from color import is_colorspecial, execute
 
 from sys import stderr
 
-def convert(filename, globalscale=5.0):
+verbose_level = 0
+def echo(s, verbose=0, halt=0):
+	if verbose <= verbose_level:
+		print >>stderr, s
+	if halt:
+		sys.exit(halt)
+
+class FontDB:
+	def __init__(self):
+		self.ids   = {}
+		self.fonts = {}
+
+	def fnt_def(self, k, s, d, fnt):
+		class Struct: pass
+		font_info, glyphs = fontsel.get_font(fnt)
+
+		info = Struct()
+		info.name		= font_info[0]
+		info.designsize		= font_info[1]
+		info.max_height		= font_info[2]
+		info.hadvscale		= float(s)/info.max_height
+		info.glyphscale		= float(s)/d * info.designsize/1000.0
+		info.glyphs		= glyphs
+
+		self.fonts[k] = info
+		
+	def get_char(self, k, dvicode):
+		self.ids[k,dvicode] = True
+
+		id    = "c%d-%02x" % (k, dvicode)
+		font  = self.fonts[k]
+		glyph = font.glyphs[dvicode]
+
+		path  = glyph[4]
+		hadv  = glyph[3] * font.hadvscale
+		return id, path, font.glyphscale, hadv
 	
-	# prepare XML document
-	implementation = DOM.getDOMImplementation()
-	doctype = implementation.createDocumentType(
-		"svg",
-		"-//W3C//DTD SVG 1.1//EN",
-		"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd")
-	document = implementation.createDocument(None, "svg", doctype)
+	def get_used_glyphs(self):
+		result = []
+		for k, dvicode in self.ids:
+			font = self.fonts[k]
+			path = font.glyphs[dvicode][4]
+			result.append( ("c%d-%02x" % (k,dvicode), path) )
+		return result
 
-	# set SVG implementation
-	svg      = document.documentElement
-	svg.setAttribute  ('xmlns', 'http://www.w3.org/2000/svg')
-	svg.setAttributeNS('xmlns', 'xmlns:xlink', "http://www.w3.org/1999/xlink")
-	svg.setAttribute('width', "500px")
-	svg.setAttribute('height', "1000px")
+fontDB = FontDB()
 
-	# create <defs> tag, to store glyphs
-	defs = document.createElement('defs')
-	def_id = {}
-	
-	svg.appendChild(defs)
-
-	# load DVI file
-	f = open(filename, 'r')
-	r = dviparser.binfile(f.read())
-	f.close()
-
-	class FontInfo: pass
-
-	font  = {} # info about loaded fonts
-	stack = []
+def convert_page(dvi, document, page, fonts, mag, scale, hoff, voff):
+	global def_id
 
 	h, v, w, x, y, z = 0,0,0,0,0,0	# DVI varaibles
 	fntnum = None			# DVI current font number
-	pageno = 0			# current page
+	stack  = []
 
-	for (command, arg) in dviparser.tokenize(r):
+	color  = None
+
+	while True:
+		command, arg = dviparser.get_token(dvi)
 		if command == 'set_char':
-			fnt = font[fntnum]
-			hadv, path = fontDB.get_glyph (fnt.name, arg)
-			
-			scale = globalscale * fnt.scale * fnt.pt_size/1000.0
+			id, path, glyphscale, hadv = fontDB.get_char(fntnum, arg)
 
-			H  = globalscale * in_pt * h
-			V  = globalscale * in_pt * v
-			h += hadv * fnt.hadvscale
+			glyphscale = mag * glyphscale
 
-			'''
-			id = "c%d-%d" % (fntnum, arg)
-			if (fntnum,arg) not in def_id:
-				element = document.createElement('path')
-				element.setAttribute('d',  path)
-				element.setAttribute('id', id)
-				defs.appendChild(element)
-				def_id[(fntnum,arg)] = id
-			
+			H  = mag * scale * (h + hoff)
+			V  = mag * scale * (v + voff)
+			h += hadv
+
 			use = document.createElement('use')
-			use.setAttribute('transform', 'scale(%f,%f) translate(%f,%f)' % (scale, -scale, H/scale, -V/scale))
 			use.setAttributeNS('xlink', 'xlink:href', '#'+id)
+			use.setAttribute('transform', 'scale(%f,%f) translate(%f,%f)' % (glyphscale, -glyphscale, H/glyphscale, -V/glyphscale))
+			if color:
+				use.setAttribute('style', 'fill:%s' % color)
 			page.appendChild(use)
-			'''
-
-			tmp = path_element.tokens(path)
-			tmp = path_element.scale(tmp, scale, -scale)
-			tmp = path_element.translate(tmp, H, V)
-
-			element = document.createElement('path')
-			element.setAttribute('d',  path_element.to_path_string(tmp))
-			page.appendChild(element)
-
 
 		elif command == 'nop':
 			pass
 		elif command == 'bop':
 			h, v, w, x, y, z = 0,0,0,0,0,0
 			fntnum  = None
-			pageno += 1
-
-			page = document.createElement('g')
-			page.setAttribute("id", "page%03d" % pageno)
-			svg.appendChild(page)
 		elif command == 'eop':
-			break
-			pass
+			return page
 		elif command == 'push':
 			stack.insert(0, (h, v, w, x, y, z))
 		elif command == 'pop':
@@ -124,45 +122,103 @@ def convert(filename, globalscale=5.0):
 		elif command == 'fnt_num':
 			fntnum = arg
 		elif command == 'fnt_def':
-			k, c, s, d, dir, fnt = arg
-			
-			info = FontInfo()
-
-			info.name       = fnt
-			info.scale      = (mag * s)/d
-			info.pt_size    = 1
-			info.hadvscale  = float(s)/fontDB.get_height(fnt)
-
-			tmp = fnt
-			while len(tmp):
-				try:
-					info.pt_size = float(tmp)
-					break
-				except ValueError:
-					tmp = tmp[1:]
-			
-			font[k] = info
+			pass		# 'fonts' dictionary already contains this information
 		elif command == "pre":
-			(i, num, den, mag, comment) = arg
-			in_mm = num/(den*10000.0)
-			in_pt = (72.27*num)/(25.4*den*10000)
-			mag   = mag/1000.0
+			raise ValueError("'pre' command is not allowed inside page - DVI corrupted")
 		elif command == "post":
-			break
+			raise ValueError("'post' command is not allowed inside page - DVI corrupted")
 		elif command == "put_rule":
 			a, b = arg
 			rect = document.createElement('rect')
-			rect.setAttribute('x',      str(globalscale * in_pt*h))
-			rect.setAttribute('y',      str(globalscale * in_pt*(v-a)))
-			rect.setAttribute('width',  str(globalscale * in_pt*b))
-			rect.setAttribute('height', str(globalscale * in_pt*a))
+			rect.setAttribute('x',      str(mag * scale * (h + hoff)))
+			rect.setAttribute('y',      str(mag * scale * (v-a + voff)))
+			rect.setAttribute('width',  str(mag * scale * b))
+			rect.setAttribute('height', str(mag * scale * a))
 			page.appendChild(rect)
+		elif command == "set_rule":
+			a, b = arg
+			rect = document.createElement('rect')
+			rect.setAttribute('x',      str(mag * scale * (h + hoff)))
+			rect.setAttribute('y',      str(mag * scale * (v-a + voff)))
+			rect.setAttribute('width',  str(mag * scale * b))
+			rect.setAttribute('height', str(mag * scale * a))
+			page.appendChild(rect)
+
+			h += b
 		elif command == "xxx":	# special
-			pass
+			#print >>stderr, "'%s'" % arg
+			if is_colorspecial(arg):
+				color, background = execute(arg)
 		else:
 			raise NotImplementedError("Command '%s' not implemented." % command)
 
+
+def convert(filename, pages, globalscale=1.0):
+	global defs
+	
+	# prepare XML document
+	implementation = DOM.getDOMImplementation()
+	doctype = implementation.createDocumentType(
+		"svg",
+		"-//W3C//DTD SVG 1.1//EN",
+		"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd")
+	document = implementation.createDocument(None, "svg", doctype)
+
+	# set SVG implementation
+	svg      = document.documentElement
+	svg.setAttribute  ('xmlns', 'http://www.w3.org/2000/svg')
+	svg.setAttributeNS('xmlns', 'xmlns:xlink', "http://www.w3.org/1999/xlink")
+
+
+	# load DVI file
+	dvi = dviparser.binfile(open(filename, 'r'))
+
+	comment, (num, den, mag, u, l), page_offset, fonts = dviparser.dviinfo(dvi)
+	
+	unsupported = fontsel.unknown_fonts( (val[3] for val in fonts.itervalues()) )
+	if unsupported:
+		print "Following SVG fonts dosn't exists: "
+		print '\n'.join(unsupported)
+		sys.exit()
+	
+	for k in fonts:
+		_, s, d, fontname = fonts[k]
+		fontDB.fnt_def(k,s,d,fontname)
+
+	mm = num/(den*10000.0)
+	for i, pagenum in enumerate(pages):
+		scale = 72.27/25.4
+		
+		dvi.seek(page_offset[pagenum-1])
+		page = document.createElement('g')
+		page.setAttribute('transform', "translate(0, %f)" % (i*1.25*297) )
+		page.setAttribute('id', 'page%03d' % pagenum)
+		svg.appendChild(page)
+
+
+		off   = 25.4/mm
+		convert_page(dvi, document, page, fonts, 1.25*mag/1000.0, scale*mm, off, off)
+	
+	#svg.setAttribute('width',  "%fmm" % (u*mm))
+	#svg.setAttribute('height', "%fmm" % (len(pages)*l*mm))
+	#viewBox="0 0 1500 1000" preserveAspectRatio="none"
+	#210x297 mm
+	
+	svg.setAttribute('width',  "210mm")
+	#svg.setAttribute('height', "297mm")
+	svg.setAttribute('height', "891mm")
+	
+	# create <defs> tag, to store glyphs
+	defs = document.createElement('defs')
+	svg.insertBefore(defs, svg.firstChild)
+
+	for idstring, pathdef in fontDB.get_used_glyphs():
+		path = document.createElement('path')
+		path.setAttribute('id', idstring)
+		path.setAttribute('d',  pathdef)
+		defs.appendChild(path)
+
+	dvi.close()
 	return document
 
-
-print convert(sys.argv[1]).toprettyxml()
+print convert(sys.argv[1], [1,2,3]).toprettyxml()
