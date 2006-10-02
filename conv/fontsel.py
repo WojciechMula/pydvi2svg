@@ -3,11 +3,11 @@ import re
 import os
 import cPickle
 
-svg_font_path	= '/home/wojtek/prog/fonts/'
-cache_path		= '/home/wojtek/prog/fonts/'
+svg_font_path	= 'fonts/'
+cache_path		= 'fonts/'
 
 
-verbose_level = 1
+verbose_level = 0
 
 def info(string, verbose=0, halt=0):
 	if verbose <= verbose_level:
