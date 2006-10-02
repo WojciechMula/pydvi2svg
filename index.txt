@@ -1,0 +1,97 @@
+=========
+pydvi2svg
+=========
+
+.. contents::
+
+Polski
+------------------------------------------------------------------------
+
+.. _Fontforge:	http://fontforge.sourceforge.net/
+.. _Python:	    http://www.python.org/
+.. _SVG:	    http://www.w3.org/SVG11/
+.. _Inkscape:   http://www.inkscape.org/
+
+
+Wprowadzenie
+~~~~~~~~~~~~
+
+G³ównym celem jaki stawia³em sobie pisz±c ten program by³a mo¿liwo¶æ
+³atwego wstawiania **wzorów** z³o¿onych w LaTeX-u do obrazków zapisanych
+w formacie SVG_.
+
+Programy które testowa³em, o ile rzecz jasna dzia³a³y, osadza³y fonty w
+plikach SVG, a tego niestety nie obs³uguje wiêkszo¶æ programów do
+wy¶wietlania/edycji plików SVG, w tym u¿ywany przeze mnie Inkscape_.
+
+Dlatego ``pydvi2svg`` osadza glify bezpo¶rednio w rysunku i z tym ju¿
+chyba ¿aden program nie powinien mieæ k³opotów --- testowane z
+Inkscape, Firefox 1.5 oraz  gqview.
+
+Niejako przy okazji okaza³o siê, ¿e nie ma wiêkszych problemów z
+konwersj± ca³ych dokumentów do tego formatu.
+
+Istnieje te¿ czê¶ciowe wsparcie dla pakietu ``color.sty``.
+
+
+Wymagania
+~~~~~~~~~
+
+Dzia³aj±cy interpreter `Pythona 2.4`__
+
+__ _Python
+
+Instalacja
+~~~~~~~~~~
+
+Poniewa¿ program jest na razie rozwijany, wiêc instalacja jest trochê
+siermiê¿na, u¿ytkowanie tak¿e.
+
+1. ¦ci±gnij pliki programu i umie¶æ w jakim¶ katalogu (np. ``dvi2svg``):
+	* `dvi2svg.py <dvi2svg.py>`_		--- g³ówny program
+	* `dviparser.py <dviparser.py>`_	--- procedury czytaj±ce plik DVI
+	* `fontsel.py <fontsel.py>`_		--- procedury intepretuj±ce fonty SVG
+
+2. ¦ci±gnij archiwum `fonts.tar.bz2 <fonts.tar.bz2>`_ i rozpakuj do
+   podkatalogu ``fonts``.
+
+Je¶li potrzebne s± dodatkowe fonty mo¿na je stworzyæ w Fontforge_,
+którego u¿y³em do wyprodukowania dostêpnych na tej stronie plików.  Przy
+zapisie nale¿y otworzyæ **Options** i zaznaczyæ opcjê **Generate CFG &
+OMG** --- (w tej chwili) program potrzebuje plików CFG.
+
+Ale poniewa¿ tymczasowo przekodowanie znaków zrobi³em byle jak, wiêc
+dzia³aj± tylko fonty *Computer Modern*; np. polskie fonty (``plr`` itp.)
+niestety ju¿ nie zadzia³aj±.
+
+
+Opcje
+~~~~~
+
+--pretty-xml      ³adne formatowanie pliku XML
+--pages           strony które maj± byæ przetwarzane --- lista liczb lub
+                  zakresów oddzielonych przecinkami, np. ``1,2,3``,
+                  ``2-5`` (od 2. do 5. strony), ``-4`` (od 1. do 4.
+                  strony), ``6-`` (od 6. strony do koñca))
+--separate-files  ka¿da strona DVI l±duje w odrêbnym pliku
+
+
+Znane problemy
+~~~~~~~~~~~~~~
+
+1. Wspomniana sprawa z kodowaniem znaków.
+2. Wspomniane czê¶ciowe wsparcie dla ``color.sty``.
+3. W Inkscape_ 0.44.1, przynajmniej tym dzia³aj±cym na moim komputerze,
+   pliki SVG tworzone przez program nie nadaj± siê do edycji, po
+   przesuniêciu elementów program gubi przekszta³cenia i ca³o¶æ
+   zaczyna przypominaæ... w³a¶ciwie nic nie przypomina.
+   Ale rzecz jasna plik mo¿na otworzyæ i dok³adnie poogl±daæ
+   obrazek.
+
+Historia zmian
+~~~~~~~~~~~~~~
+
+...
+
+..
+	vim: tw=72 ts=4 sw=4

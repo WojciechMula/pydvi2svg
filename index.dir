@@ -1,0 +1,9 @@
+style:	style.css
+rest:	index.txt
+
+copy:	colors.py
+copy:	dvi2svg.py
+copy:	fontsel.py
+copy:	fonts.tar.bz2
+#path_element.py
+
