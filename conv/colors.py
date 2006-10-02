@@ -1,3 +1,54 @@
+from sys import stderr
+
+def is_colorspecial(special):
+	return special.startswith('color ')
+
+color_stack = []
+background  = None
+
+def execute(special):
+	global color_stack, background
+
+	fields = special.split()
+	assert fields[0] == 'color'
+	command = fields[1]
+
+	if command == 'pop':
+		color_stack.pop(0)
+	elif command == 'push':
+		if len(fields) == 3:	# "color push dvipsname"
+			r,g,b = dvicolornames[fields[2]]
+		elif len(fields) == 4 and fields[2] == 'gray':	# "color push gray v"
+			v = float(fields[3])
+			r,g,b = v,v,v
+		elif len(fields) == 6 and fields[2] == 'rgb':	# "color push rgb r g b"
+			r = float(fields[3])
+			g = float(fields[4])
+			b = float(fields[5])
+		elif len(fields) == 7 and fields[2] == "cmyk":	# "color push cmyk c m k"
+			c = float(fields[3])
+			m = float(fields[4])
+			y = float(fields[5])
+			k = float(fields[6])
+			
+			r = (1-c)*(1-k)
+			g = (1-m)*(1-k)
+			b = (1-y)*(1-k)
+		else:
+			raise NotImplementedError("push command (color package): %s" % special)
+		
+		color = "#%02x%02x%02x" % (int(r*255), int(g*255), int(b*255))
+		color_stack.insert(0, color)
+	
+	else:
+		raise NotImplementedError("color command: %s" % special)
+
+
+	if color_stack:
+		return color_stack[0], background
+	else:
+		return None, background
+
 dvicolornames = {
 "Red"			: (1,0,0),
 "Tan"			: (0.86,0.58,0.44),
