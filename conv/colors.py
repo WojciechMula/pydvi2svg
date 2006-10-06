@@ -1,3 +1,22 @@
+# pydvi2svg
+# -*- coding: iso-8859-2 -*-
+#
+# (Partial) support for color.sty special
+# $Id: colors.py,v 1.3 2006-10-06 17:27:02 wojtek Exp $
+# 
+# license: BSD
+#
+# author: Wojciech Mu³a
+# e-mail: wojciech_mula@poczta.onet.pl
+
+__changelog__ = '''
+ 3.10.2006
+ 	- added support for "color gray v"
+	- added function is_colorspecial & execute
+ 2.10.2006
+ 	- initial version
+'''
+
 from sys import stderr
 
 def is_colorspecial(special):
@@ -119,3 +138,5 @@ dvicolornames = {
 "CornflowerBlue"	: (0.35,0.87,1),
 "WildStrawberry"	: (1,0.04,0.61),
 }
+
+# vim: ts=4 sw=4
