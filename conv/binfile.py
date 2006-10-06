@@ -1,3 +1,21 @@
+# pydvi2svg
+# -*- coding: iso-8859-2 -*-
+#
+# Extension to built-in file
+# $Id: binfile.py,v 1.2 2006-10-06 17:54:05 wojtek Exp $
+# 
+# license: BSD
+#
+# author: Wojciech Mu³a
+# e-mail: wojciech_mula@poczta.onet.pl
+
+__changelog__ = '''
+  6.10.2006
+ 	- moved from dviparser.py
+ xx.09.2006
+ 	- first version
+'''
+
 from struct import unpack
 
 class binfile(file):
