@@ -1,3 +1,5 @@
+# simple utility that lists fonts used in given DVI file
+
 import dviparser
 
 if __name__ == '__main__':
