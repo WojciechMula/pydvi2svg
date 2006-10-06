@@ -1,67 +1,23 @@
-from struct import unpack
-from sys    import stderr
+# pydvi2svg
+# -*- coding: iso-8859-2 -*-
+#
+# DVI releated function (tokenizer, getting basic info about document)
+# $Id: dviparser.py,v 1.4 2006-10-06 17:32:28 wojtek Exp $
+# 
+# license: BSD
+#
+# author: Wojciech Mu³a
+# e-mail: wojciech_mula@poczta.onet.pl
 
-class binfile:
-	def __init__(self, file):
-		file.seek(0,2)
-		self.len  = file.tell()
-		file.seek(0,0)
-		self.file = file
+__changelog__ = '''
+ 01.02.2006	(around)
+ 	- added dviinfo function
+ 25.09.2006
+ 	- fixed command number in get_token
+ xx.09.2006
+  	- first version (including binfile class, now moved out)
+'''
 
-	def _read(self, n=-1):
-		data = self.file.read(n)
-		if n > 0 and len(data) != n:
-			raise IOError("Expeced to read %d bytes, got %d" % (n, len(data)))
-		else:
-			return data
-	
-	def uint8(self):
-		x = unpack('B', self.read(1))[0]
-		return x
-
-	def uint16(self):
-		x = unpack('>H', self._read(2))[0]
-		return x
-
-	def uint24(self):
-		x = unpack('>I', '\0' + self._read(3))[0]
-		return x
-
-	def uint32(self):
-		x = unpack('>L', self._read(4))[0]
-		return x
-
-	def int8(self):
-		x = unpack('b', self._read(1))[0]
-		return x
-
-	def int16(self):
-		x = unpack('>h', self._read(2))[0]
-		return x
-
-	def int24(self):
-		x = unpack('>i', self._read(3) + '\0')[0] >> 8
-		return x
-
-	def int32(self):
-		x = unpack('>l', self._read(4))[0]
-		return x
-
-	def read(self, n=-1):
-		return self._read(n)
-	
-	def seek(self, offset, whence=0):
-		self.file.seek(offset, whence)
-	
-	def close(self):
-		self.file.close()
-
-	def tell(self):
-		return self.file.tell()
-	
-	def __nonzero__(self):
-		return self.file.tell() < self.len
-	
 def get_token(reader):
 	command = reader.uint8()
 	if command <= 127: # set_char_i (0-127)
@@ -267,10 +223,6 @@ def get_token(reader):
 		return ("undefined", command)
 	else:
 		raise ValueError("command %d not recognized (it is implementation error!)" % command)
-
-def tokenize(reader):
-	while reader:
-		yield get_token(reader)
 
 def dviinfo(dvi):
 	old_pos = dvi.tell()
