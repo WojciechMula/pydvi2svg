@@ -1,6 +1,20 @@
-# Changelog:
-#  3.10.2006 - read_ENC
-#  4.10.2006 - ENCFileError, EncodingDB
+# pydvi2svg
+# -*- coding: iso-8859-2 -*-
+#
+# Encoding and ENC file support
+# $Id: encoding.py,v 1.2 2006-10-06 17:55:33 wojtek Exp $
+# 
+# license: BSD
+#
+# author: Wojciech Mu³a
+# e-mail: wojciech_mula@poczta.onet.pl
+
+__changelog__ = '''
+  4.10.2006
+	- ENCFileError, EncodingDB
+  3.10.2006
+	- read_ENC
+'''
 
 import os
 import findfile
@@ -127,6 +141,5 @@ def read_ENC(file):
 	name_list = [get_charname(name) for name in name_list]
 
 	return name, name_list
-
 
 # vim: ts=4 sw=4
