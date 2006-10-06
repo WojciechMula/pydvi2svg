@@ -1,9 +1,21 @@
-# Changelog:
-#  3.10.2006
-#	- read_AFM, read_TFM
-#  5.10.2006
-#	- read_MAP (not releated, but goes here)
-#	- added AFMError exception
+# pydvi2svg
+# -*- coding: iso-8859-2 -*-
+#
+# Reading TFM & AFM files
+# $Id: metrics.py,v 1.2 2006-10-06 17:56:19 wojtek Exp $
+# 
+# license: BSD
+#
+# author: Wojciech Mu³a
+# e-mail: wojciech_mula@poczta.onet.pl
+
+__changelog__ = '''
+  5.10.2006
+	- added AFMError exception
+	- read_MAP (not releated, but goes here)
+  3.10.2006
+	- read_AFM, read_TFM
+'''
 
 from binfile  import binfile
 from findfile import find_all
@@ -129,3 +141,5 @@ def read_MAP(filename, fontname):
 
 	file.close()
 	return enc
+
+# vim: ts=4 sw=4

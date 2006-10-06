@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # DVI releated function (tokenizer, getting basic info about document)
-# $Id: dviparser.py,v 1.4 2006-10-06 17:32:28 wojtek Exp $
+# $Id: dviparser.py,v 1.5 2006-10-06 17:55:15 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,7 +10,7 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
- 01.02.2006	(around)
+ 02.10.2006
  	- added dviinfo function
  25.09.2006
  	- fixed command number in get_token
