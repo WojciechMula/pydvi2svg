@@ -1,5 +1,24 @@
+# pydvi2svg
+# -*- coding: iso-8859-2 -*-
+#
+# Main program
+# $Id: dvi2svg.py,v 1.5 2006-10-06 17:54:45 wojtek Exp $
+# 
+# license: BSD
+#
+# author: Wojciech Mu³a
+# e-mail: wojciech_mula@poczta.onet.pl
+
 '''
-4.10.2006
+ 6.10.2006
+	- removed class fontDB, fontsel now provide these functions (*)
+	- use logging module
+	- added override encoding (--enc switch)
+	- removed --update-cache switch
+	- replaced --separate-files switch with --single-file
+	- implemented --page-size switch
+
+ 4.10.2006
 	- much smaller SVG output; characters with some scale factor
 	  and y coordinate are grouped;
 
@@ -12,7 +31,7 @@
 		<use x="4" y="11" transform="scale(0.5)" .../>
 		<use x="5" y="11" transform="scale(0.5)" .../>
 	
-	  became
+	  become
 
 		<g transform="scale(0.5)">
 			<g transform="translate(0,10)">
@@ -26,73 +45,42 @@
 				<use x="5" .../>
 			</g>
 		</g>
+
+  2.10.2006
+	- convert single pages
+	- some fixes in rendering routines
+	- fonts managed by external object, not render itself
+	- added command line supprt
+	- fixed font scale calculation
+	- added separate class that produce SVG documents
+
+ 30.09.2006
+ 	- version 0.1 (based on previous experiments)
 '''
 
 import sys
 import os
 import xml.dom
+import logging
 
 from sys  import stderr
 from sets import Set
 
 import dviparser
 import fontsel
-
-from binfile import binfile
-
-from colors import is_colorspecial, execute
-
-verbose_level = 1
-def echo(s, verbose=0, halt=0):
-	if verbose <= verbose_level:
-		print >>stderr, s
-	if halt:
-		sys.exit(halt)
-
-from encoding import EncodingDB, EncodingDBError
 import setup
 
-encodingDB = EncodingDB(setup.encoding_path, setup.tex_paths)
+from binfile import binfile
+from colors  import is_colorspecial, execute
 
-class FontDB:
-	def __init__(self):
-		self.fonts = {}
-
-	def fnt_def(self, k, s, d, fnt, recache=False):
-		class Struct: pass
-		encoding, font_info, glyphs = fontsel.get_font(fnt, recache)
-
-		info = Struct()
-		info.name		= font_info[0]
-		info.designsize		= font_info[1]
-		info.hadvscale		= float(s)/1000
-		info.glyphscale		= float(s)/d * info.designsize/1000.0
-		info.glyphs		= glyphs
-		info.encoding		= encodingDB.getencodingtbl(encoding)
-
-		self.fonts[k] = info
-		
-	def get_char(self, k, dvicode):
-		font  = self.fonts[k]
-		name  = font.encoding[dvicode]
-		try:
-			glyph = font.glyphs[name]
-			hadv  = glyph[1] * font.hadvscale
-			path  = glyph[2]
-			return path, font.glyphscale, hadv
-		except KeyError:
-			print "%s missing char '%s'" % (font.name, name)
-			return None
-
-fontDB = FontDB()
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger('dvi2svg')
 
 class SVGDocument:
-	def __init__(self, fontDB, mag, scale, unit_mm, page_size):
-		self.fontDB	= fontDB
-		self.mag	= mag		# maginication
-		self.scale	= scale		# additional scale
-		#self.oneinch	= 25.4/unit_mm
-		self.oneinch	= 0.0
+	def __init__(self, mag, scale, unit_mm, page_size):
+		self.mag		= mag		# maginication
+		self.scale		= scale		# additional scale
+		self.oneinch	= 25.4/unit_mm
 
 		self.id		= Set()
 		self.pageno	= 0
@@ -130,11 +118,10 @@ class SVGDocument:
 		self.id.add( (fntnum, dvicode) )
 		idstring = "c%d-%02x" % (fntnum, dvicode)
 
-		res = self.fontDB.get_char(fntnum, dvicode)
-		if not res:
+		try:
+			glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
+		except KeyError:
 			return 0.0
-
-		path, glyphscale, hadv = res
 
 		H  = self.scale * (h + self.oneinch)
 		V  = self.scale * (v + self.oneinch)
@@ -143,9 +130,6 @@ class SVGDocument:
 		use.setAttributeNS('xlink', 'xlink:href', '#'+idstring)
 
 		use.setAttribute('x', str( H/glyphscale))
-		#use.setAttribute('y', str(-V/glyphscale))
-		#use.setAttribute('transform', 'scale(%s,%s)' % (str(glyphscale), str(-glyphscale)))
-
 		if color:
 			use.setAttribute('style', 'fill:%s' % color)
 
@@ -153,7 +137,6 @@ class SVGDocument:
 		newy     = self.prevy != -V/glyphscale or newscale
 			
 		if newy and self.cury and len(self.cury.childNodes) == 1:
-			#echo("\ttransform -- one child")
 			tmp = self.cury.firstChild
 			tmp.setAttribute('y', str(self.cury.ytransform))
 
@@ -164,13 +147,11 @@ class SVGDocument:
 
 			tmp = self.curblock.firstChild
 			if tmp.nodeName == 'use':
-				#echo("scale -- one child")
 				scale = str(self.curblock.scale)
 				tmp.setAttribute('transform', 'scale(%s,-%s)' % (scale, scale))
 			
 				self.curblock.removeChild(tmp)
 				self.curblock.parentNode.replaceChild(tmp, self.curblock)
-
 
 		if newscale:
 			self.curblock = self.document.createElement('g')
@@ -204,13 +185,14 @@ class SVGDocument:
 		# create defs
 		defs = self.document.createElement('defs')
 		for fntnum, dvicode in self.id:
-			res = self.fontDB.get_char(fntnum, dvicode)
-			if not res:
+			try:
+				glyph, scale, _ = fontsel.get_char(fntnum, dvicode)
+			except KeyError:
 				continue
 
 			path = self.document.createElement('path')
 			path.setAttribute("id", "c%d-%02x" % (fntnum, dvicode))
-			path.setAttribute("d",  res[0])
+			path.setAttribute("d",  glyph)
 			defs.appendChild(path)
 
 		self.svg.insertBefore(defs, self.svg.firstChild)
@@ -317,7 +299,6 @@ def get_basename(filename):
 	else:
 		return filename
 
-from sets import Set
 
 def parse_pagedef(string, min, max):
 	"""
@@ -375,45 +356,79 @@ def parse_pagedef(string, min, max):
 	#rof
 	return list(Set(result))
 
+
+def parse_enc_repl(string):
+	# format:
+	#  fontname:enc,fontname:enc,fontname=enc
+
+	string = string.replace(':', '=')
+	dict   = {}
+	for item in string.split(','):
+		try:
+			fontname, enc = item.split('=')
+			dict[fontname] = enc
+		except ValueError:
+			pass
+	
+	return dict
+	
+
 if __name__ == '__main__':
 	import optparse
 	
 	parser = optparse.OptionParser()
 	
-	parser.add_option("--update-cache",
-	                  action="store_true",
-			  dest="update_cache",
-			  default=False)
+	parser.add_option("--enc",
+					  dest="enc_repl",
+					  default={})
 	
 	parser.add_option("--pretty-xml",
 	                  action="store_true",
-			  dest="prettyXML",
-			  default=False)
+					  dest="prettyXML",
+					  default=False)
 
-	parser.add_option("--separate-files",
+	parser.add_option("--single-file",
 	                  action="store_true",
-			  dest="separate_files",
-			  default=False)
+					  dest="single_file",
+					  default=False)
 
 	parser.add_option("--pages",
 	                  dest="pages")
 	
 	parser.add_option("--scale",
 	                  dest="scale",
-			  default=1.0)
+					  default=1.0)
 
-	parser.add_option("--pages-size",
-	                  dest="page_size",
-			  default="A4")
+	parser.add_option("--paper-size",
+	                  dest="paper_size",
+					  default=None)
 
 	(options, args) = parser.parse_args()
+	if not args:
+		log.info("Nothing to do.")
+		sys.exit()
+
+	if options.enc_repl:
+		fontsel.preload(parse_enc_repl(options.enc_repl))
+	else:
+		fontsel.preload()
+
+	
+	from paper_size import paper_size
+	try:
+		(pw, ph) = paper_size[options.paper_size.upper()]
+		log.debug("Paper size set to %s (%dmm x %dmm)",
+		          options.paper_size.upper(), pw, ph)
+	except (KeyError, AttributeError):
+		(pw, ph) = paper_size['A4']
+
 	for filename in args:
 	
 		#
 		# 1. Open file
 		#
 		dvi = open_dvi(filename, 'rb', '.dvi')
-		echo("Processing '%s' file" % dvi.name) 
+		log.info("Processing '%s' file", dvi.name) 
 
 		#
 		# 2. Read DVI info	
@@ -423,9 +438,9 @@ if __name__ == '__main__':
 		unit_mm = num/(den*10000.0)
 
 		if mag == 1000: # not scaled
-			echo("%s ('%s') has %d page(s)" % (dvi.name, comment, len(page_offset)), 2)
+			log.debug("%s ('%s') has %d page(s)", dvi.name, comment, len(page_offset))
 		else:           # scaled
-			echo("%s ('%s') has %d page(s); magnification %f times" % (dvi.name, comment, len(page_offset), mag/1000.0), 2)
+			log.debug("%s ('%s') has %d page(s); magnification is %0.2f", dvi.name, comment, len(page_offset), mag/1000.0)
 
 		#
 		# 3. Preload fonts
@@ -434,16 +449,15 @@ if __name__ == '__main__':
 		# check if we support all fonts
 		missing = fontsel.unavailable_fonts( (val[3] for val in fonts.itervalues()) )
 		if missing:	# there are some unknown
-			echo("Following fonts are unavailable:", 0)
-			echo('\n'.join(missing), 0)
-			echo("Skipping '%s'" % dvi.name, 0)
+			log.error("Following fonts aren't available:")
+			log.error('\n'.join(missing))
+			log.info("Skipping file '%s'" % dvi.name)
 			continue
 
 		else:		# ok, preload
 			for k in fonts:
 				_, s, d, fontname = fonts[k]
-				fontDB.fnt_def(k,s,d,fontname, options.update_cache)
-
+				fontsel.create_DVI_font(fontname, k, s, d)
 
 		#
 		# 4. process pages
@@ -451,37 +465,41 @@ if __name__ == '__main__':
 		if options.pages == None:	# processing all pages
 			pages = range(0, n)
 		else:				# processing selected pages
-			tmp   = parse_pagedef(options.pages, 1, n)
-			pages = [p-1 for p in tmp]
+			try:
+				tmp   = parse_pagedef(options.pages, 1, n)
+				pages = [p-1 for p in tmp]
+			except ValueError, e:
+				log.warning("Argument of --pages switch has invalid syntax ('%s'), processing first page", options.pages)
+				pages = [0]
 
 		# ok, write the file
 		basename = os.path.split(get_basename(dvi.name))[1]
 
 			
 		scale = unit_mm * 72.27/25.4
-		mag   = mag/1000.0 * 1.25
+		mag   = mag/1000.0
 		try:
 			mag *= float(options.scale)
 		except ValueError:
 			pass
 
-		if options.separate_files:
+		if options.single_file:
+			svg = SVGDocument(fontDB, mag, scale, unit_mm, (pw,ph))
 			for i, pageno in enumerate(pages):
-				echo("Procesing page %d (%d of %d)" % (pageno+1, i+1, len(pages)))
-				dvi.seek(page_offset[pageno])
-				svg = SVGDocument(fontDB, 1.25 * mag, scale, unit_mm, (210, 297))
-				svg.new_page()
-				convert_page(dvi, svg)
-				svg.save("%s%04d.svg" % (basename, pageno+1), options.prettyXML)
-		else:
-			svg = SVGDocument(fontDB, 1.25 * mag, scale, unit_mm, (210, 297))
-			for i, pageno in enumerate(pages):
-				echo("Procesing page %d (%d of %d)" % (pageno+1, i+1, len(pages)))
+				log.info("Procesing page %d (%d of %d)", pageno+1, i+1, len(pages))
 				dvi.seek(page_offset[pageno])
 				svg.new_page()
 				convert_page(dvi, svg)
 
 			svg.save(basename + ".svg", options.prettyXML)
+		else:
+			for i, pageno in enumerate(pages):
+				log.info("Procesing page %d (%d of %d)", pageno+1, i+1, len(pages))
+				dvi.seek(page_offset[pageno])
+				svg = SVGDocument(1.25 * mag, scale, unit_mm, (pw,ph))
+				svg.new_page()
+				convert_page(dvi, svg)
+				svg.save("%s%04d.svg" % (basename, pageno+1), options.prettyXML)
 
 	sys.exit(0)
 
