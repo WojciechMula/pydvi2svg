@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Encoding and ENC file support
-# $Id: encoding.py,v 1.2 2006-10-06 17:55:33 wojtek Exp $
+# $Id: encoding.py,v 1.3 2006-10-08 21:27:23 wojtek Exp $
 # 
 # license: BSD
 #
@@ -140,6 +140,6 @@ def read_ENC(file):
 
 	name_list = [get_charname(name) for name in name_list]
 
-	return name, name_list
+	return encodingname, name_list
 
 # vim: ts=4 sw=4

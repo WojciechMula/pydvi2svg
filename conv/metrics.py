@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Reading TFM & AFM files
-# $Id: metrics.py,v 1.2 2006-10-06 17:56:19 wojtek Exp $
+# $Id: metrics.py,v 1.3 2006-10-08 21:27:23 wojtek Exp $
 # 
 # license: BSD
 #
@@ -16,9 +16,6 @@ __changelog__ = '''
   3.10.2006
 	- read_AFM, read_TFM
 '''
-
-from binfile  import binfile
-from findfile import find_all
 
 class TFMError(Exception):
 	pass
@@ -113,29 +110,30 @@ def read_TFM(file):
 
 	width = [None for _ in xrange(256)]
 	for i, info in enumerate(char_info):
-		code     = i + bc
-		index    = info >> 24
-		width[i] = width_table[index]
+		code        = i + bc
+		index       = info >> 24
+		width[code] = width_table[index]
 
 	return (checksum, designsize, encoding, width)
 
 
 def read_MAP(filename, fontname):
+	comment_chars = "%@"
 	file = open(filename, 'r')
 
 	pfa = "<%s.pfa" % fontname
 	pfb = "<%s.pfa" % fontname
-	for lineno, line in enumerate(file):
+	for line in file:
 		# skip empty or commented lines
 		line = line.strip()
-		if not line or (line[0] in comments_chars):
+		if not line or (line[0] in comment_chars):
 			continue
 
 		if line.endswith(pfb) or line.endswith(pfa):
 			tmp = line.split()
 			if len(tmp) > 1:
 				tmp = tmp[-2]
-				if tmp[0] == '<' and enc.endswith('.enc'):
+				if tmp[0] == '<' and tmp.endswith('.enc'):
 					enc = tmp[1:-4]
 					break
 

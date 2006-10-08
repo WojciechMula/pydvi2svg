@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Main program
-# $Id: dvi2svg.py,v 1.5 2006-10-06 17:54:45 wojtek Exp $
+# $Id: dvi2svg.py,v 1.6 2006-10-08 21:27:23 wojtek Exp $
 # 
 # license: BSD
 #
@@ -63,14 +63,11 @@ import os
 import xml.dom
 import logging
 
-from sys  import stderr
-from sets import Set
-
 import dviparser
 import fontsel
-import setup
 
 from binfile import binfile
+from sets import Set
 from colors  import is_colorspecial, execute
 
 logging.basicConfig(level=logging.INFO)
@@ -186,7 +183,7 @@ class SVGDocument:
 		defs = self.document.createElement('defs')
 		for fntnum, dvicode in self.id:
 			try:
-				glyph, scale, _ = fontsel.get_char(fntnum, dvicode)
+				glyph, _, _ = fontsel.get_char(fntnum, dvicode)
 			except KeyError:
 				continue
 
@@ -484,7 +481,7 @@ if __name__ == '__main__':
 			pass
 
 		if options.single_file:
-			svg = SVGDocument(fontDB, mag, scale, unit_mm, (pw,ph))
+			svg = SVGDocument(1.25 * mag, scale, unit_mm, (pw,ph))
 			for i, pageno in enumerate(pages):
 				log.info("Procesing page %d (%d of %d)", pageno+1, i+1, len(pages))
 				dvi.seek(page_offset[pageno])
