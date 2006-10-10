@@ -1,0 +1,251 @@
+
+English
+------------------------------------------------------------------------
+
+Introduction
+~~~~~~~~~~~~
+
+This is another DVI to SVG converter (and is written in Python_).
+
+When I was started to write this program I just want to export
+**mathematical expressions**.  But since DVI is just a set of commands
+that puts characters and move magic current point around a page,
+``pydvi2svg`` is able to convert any kind of document.
+
+There is partial support for ``color.sty`` specials.
+
+Why another convert?  Because programs I've checked---if worked of
+course---embeded SVG font in the file.  And it is not supported by most
+of SVG viewer/editor programs, including Inkscape_ that I use often.
+Because of that ``pydvi2svg`` embeds *glifs* as a paths and simply links
+to them. It works perfectly. Tested with Inkscape, Firefox 1.5 and
+gqview.
+
+
+Samples
+~~~~~~~
+
+1. Article borrowed from English Wikipedia about DVI file format.
+   Font face used: *Computer Modern*.
+
+	* TeX__
+	* DVI__
+	* SVG `page 1`__ i `2`__
+
+__ samples/sample1.tex
+__ samples/sample1.dvi
+__ samples/sample10001.svg
+__ samples/sample10002.svg
+
+2. Article borrowed from polish Wikipedia about :plwiki:`Antykwa
+   Pó³tawskiego` --- the original polish font face.  Of course
+   if you open SVG you will see this font "in action".
+
+	* TeX__
+	* DVI__
+	* SVG__
+
+__ samples/sample2.tex
+__ samples/sample2.dvi
+__ samples/sample20001.svg
+
+Wikipedia articles are licensed under GNU GFDL license.
+
+
+Prerequisites
+~~~~~~~~~~~~~
+
+- Python_ interpreter, version 2.4
+- If you need other fonts that are provided on this site, you
+  will need TeX installation (all its' utilities, fonts, etc.)
+  and free, multiplatform font editor Fontforge_ that is able
+  to save SVG fonts.
+
+
+Installation
+~~~~~~~~~~~~
+
+Following archives are needed:
+
+1. `pydvi2svg.tar.bz2 <pydvi2svg.tar.bz2>`_	--- source files
+2. `fonts.tar.bz2 <fonts.tar.bz2>`_			---  *Computer Modern* fonts converted to SVG 
+
+
+If you have them, then:
+
+1. unpack ``pydvi2svg.tar.bz2`` --- directory  ``pydvi2svg`` will be created
+2. change to this directory
+3. unpack ``fonts.tar.bz2`` --- subdirectory ``fonts`` will be created
+
+
+After correct installation directory tree should looks
+as follow::
+
+	pydvi2svg
+	 |
+	 +- enc
+	 |
+	 +- fonts
+	     |
+	     +- cm
+
+
+
+Program options
+~~~~~~~~~~~~~~~
+
+::
+
+    python dvi2svg.py  [OPTION] file.dvi ...
+
+
+**Options**:
+
+``--pages`` [list]
+	List of document pages or page ranges to convert.  List's
+	element are separated by colons.  Examples::
+
+		--pages 1,2,3,4,7       # convert pages 1, 2, 3, 4 and 7
+		--pages 1-4,7           # above shorter
+		--pages 7-              # convert all pages starting from 7th
+		--pages -10             # convert pages 1-10
+	
+	(By default all pages are converted).
+
+``--enc`` [list]
+	Override (or set) encoding of selected fonts.  Elements are
+	separated with colons, and has format ``font name``:``encoding name``.
+	For example::
+	
+		--enc cmr12:ot1,pltt12:pltt
+
+``--scale`` [float number=1.0]
+	Change default scale of document
+
+``--paper-size`` [name=A4]
+	Set page format, see :plwiki:`Format arkusza|ISO 216`
+
+``--single-file``
+	All pages are saved in single file. (By default pages are
+	saved in separate files).
+
+``--pretty-xml``
+	"Pretty formatting" of SVG (files become larger, but are easy
+	to read).
+
+
+Solving common problems
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Where can I find other fonts saved in SVG format
+::::::::::::::::::::::::::::::::::::::::::::::::
+
+The easiest way is to convert your own fonts with Fontforge_ assistance.
+SVG font have to be placed in ``fonts`` directory or its subdirectory.
+
+Fontforge is able to read most vector font formats---in a TeX
+installation we usually find Type1 fonts (``PFB`` or ``PFA``).
+If there is just Metafont source, you still can convert font:
+Fontforge use autotrace_ or potrace_ to trace glyph's vector
+outlines.
+
+
+Before you create font (**Generate font...**) assure that glyph's
+names are not changed (option **No Rename** set).
+
+.. _autotrace:	http://autotrace.sourceforge.net
+.. _potrace:	http://potrace.sourceforge.net
+
+
+If you use other utility, make sure that output SVG fits following
+rules:
+
+* ``<glyph>`` element has attributes ``name`` and ``d`` (path)
+* if element hasn't got ``d`` attribute there must be just one child
+  element ``<path>`` contains it
+
+SVG have to get following structure:: 
+
+	<font>
+		<glyph name="..." d="..."/>
+		<glyph name="..." d="..."/>
+		...
+	</font>
+
+or
+
+::
+	
+	<font>
+		<glyph name="...">
+			<path d="..."/>
+		</glyph>
+		<glyph name="...">
+			<path d="..."/>
+		</glyph>
+		...
+	</font>
+
+(Of course these rules are not fixed and I'm able to change them, but
+ have never met SVG fonts with different structure).
+
+
+I got warning ``missing char``
+::::::::::::::::::::::::::::::
+
+Usually it means that encoding of certain font is not correct.  Try
+to change it with command line option ``--enc``: look in ``enc``
+subdirectory or locate other ``.enc`` files in your TeX installation.
+
+If you find correct encoding you can change ``pydvi2svg`` settings
+permanently.  Update file ``enc/file.info``; single line has format::
+
+	font_name        encoding_name        designsize
+
+Here is a sample::
+
+	pltt12           pltt                 12.000000
+
+
+
+``pydvi2svg`` tries to find TFM files and read encoding name (it tries
+AFM files too, but it is not well testes).   But if SVG font has been
+converted from, for example, Type1 format its' encoding may be
+different.
+
+For example TFM file that describe font ``pltt12`` claims that encoding
+is "TeX typewriter text", i.e. ``texnansi``. But since this font was
+converted from ``PFB`` we have to a look into some ``.map`` file, and
+than will notice that TeX applies encoding file called ``pltt.enc`` (so,
+we must set encoding ``pltt``). 
+
+Likewise CM fonts may have encoding OT1 instead of T1.
+
+
+I got error ``Unknown TeX/AFM encoding``
+::::::::::::::::::::::::::::::::::::::::
+
+You have to check which ``*.enc`` describe reported encoding.
+Files are placed in directory ``enc`` and somewhere in your
+TeX installation tree.  If you find adequate encoding
+update contents of file ``enc/enc.info`` (and of course drop
+me a line).
+
+
+Licence
+~~~~~~~
+
+* **Program** is licensed under BSD_ license.
+* Fonts keep their licenses and copyrights.  I putted in here
+  in a other format to make user's live bit easier.
+
+
+Remarks, errors, patches
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Please send to author any remarks, bugs, patches, questions, etc.:
+
+	Wojciech Mu³a, wojciech_mula@poczta.onet.pl
+
+..
+	vim: tw=72 ts=4 sw=4 noexpandtab
