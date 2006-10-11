@@ -14,8 +14,8 @@ that puts characters and move magic current point around a page,
 
 There is partial support for ``color.sty`` specials.
 
-Why another convert?  Because programs I've checked---if worked of
-course---embeded SVG font in the file.  And it is not supported by most
+Why another convert?  Because programs I've checked---if they worked of
+course---embeded SVG font in the file.  This is not supported by most
 of SVG viewer/editor programs, including Inkscape_ that I use often.
 Because of that ``pydvi2svg`` embeds *glifs* as a paths and simply links
 to them. It works perfectly. Tested with Inkscape, Firefox 1.5 and
@@ -56,10 +56,9 @@ Prerequisites
 ~~~~~~~~~~~~~
 
 - Python_ interpreter, version 2.4
-- If you need other fonts that are provided on this site, you
-  will need TeX installation (all its' utilities, fonts, etc.)
-  and free, multiplatform font editor Fontforge_ that is able
-  to save SVG fonts.
+- If you need additional SVG fonts, you will need TeX installation
+  (all its' utilities, fonts, etc.) and free, multiplatform font
+  editor Fontforge_ that is able to save SVG fonts.
 
 
 Installation
@@ -198,7 +197,8 @@ to change it with command line option ``--enc``: look in ``enc``
 subdirectory or locate other ``.enc`` files in your TeX installation.
 
 If you find correct encoding you can change ``pydvi2svg`` settings
-permanently.  Update file ``enc/file.info``; single line has format::
+permanently.  You have to update file ``enc/file.info``; single
+line has format::
 
 	font_name        encoding_name        designsize
 
@@ -227,8 +227,8 @@ I got error ``Unknown TeX/AFM encoding``
 
 You have to check which ``*.enc`` describe reported encoding.
 Files are placed in directory ``enc`` and somewhere in your
-TeX installation tree.  If you find adequate encoding
-update contents of file ``enc/enc.info`` (and of course drop
+TeX installation tree.  If you find adequate encoding, then
+update file ``enc/enc.info`` (and of course drop
 me a line).
 
 
