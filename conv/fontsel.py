@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.5 2006-10-06 17:56:08 wojtek Exp $
+# $Id: fontsel.py,v 1.6 2006-10-12 22:08:35 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,6 +10,8 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
+12.10.2006
+	- get_char returns name too
  6.10.2006
  	- added fontDB functions:
 		- load fonts at given scale (create_DVI_font)
@@ -97,6 +99,7 @@ def create_DVI_font(fontname, k, s, d):
 def get_char(fontnum, dvicode):
 	"""
 	Returns following data releated to character:
+	- glyphname
 	- glyph (shape)
 	- shape scale factor needed to fit current font size
 	- width of char in TeX units
@@ -106,7 +109,7 @@ def get_char(fontnum, dvicode):
 	glyphname = font.encoding[dvicode]
 	try:
 		glyph = font.glyphs_dict[glyphname]
-		return glyph.path, font.scale, glyph.hadv * font.hadvscale
+		return glyphname, glyph.path, font.scale, glyph.hadv * font.hadvscale
 	except KeyError, e:
 		log.error("%s: missing char '%s'" % (font.name, glyphname))
 		raise e

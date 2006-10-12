@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Main program
-# $Id: dvi2svg.py,v 1.6 2006-10-08 21:27:23 wojtek Exp $
+# $Id: dvi2svg.py,v 1.7 2006-10-12 22:08:35 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,6 +10,8 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 '''
+12.10.2006
+	- SVGTextDocument (started)
  6.10.2006
 	- removed class fontDB, fontsel now provide these functions (*)
 	- use logging module
@@ -74,6 +76,9 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('dvi2svg')
 
 class SVGDocument:
+	"""
+	Outputs glyphs
+	"""
 	def __init__(self, mag, scale, unit_mm, page_size):
 		self.mag		= mag		# maginication
 		self.scale		= scale		# additional scale
@@ -111,12 +116,12 @@ class SVGDocument:
 		self.svg.appendChild(self.page)
 		return self.page
 	
-	def put_char(self, h, v, fntnum, dvicode, color=None):
+	def put_char(self, h, v, fntnum, dvicode, color=None, next=False):
 		self.id.add( (fntnum, dvicode) )
 		idstring = "c%d-%02x" % (fntnum, dvicode)
 
 		try:
-			glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
+			_, glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
 		except KeyError:
 			return 0.0
 
@@ -183,7 +188,7 @@ class SVGDocument:
 		defs = self.document.createElement('defs')
 		for fntnum, dvicode in self.id:
 			try:
-				glyph, _, _ = fontsel.get_char(fntnum, dvicode)
+				_, glyph, _, _ = fontsel.get_char(fntnum, dvicode)
 			except KeyError:
 				continue
 
@@ -202,18 +207,62 @@ class SVGDocument:
 			f.write(self.document.toxml())
 		f.close()
 
+from unic import name_lookup
+class SVGTextDocument(SVGDocument):
+	"""
+	Outputs text
+	"""
+	def put_char(self, h, v, fntnum, dvicode, color=None, next=False):
+		try:
+			glyphname, glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
+		except KeyError:
+			return 0.0
+
+		H  = self.scale * (h + self.oneinch)
+		V  = self.scale * (v + self.oneinch)
+
+
+		if name_lookup[glyphname]:
+			textnode = self.document.createElement('text')
+			text     = self.document.createTextNode(name_lookup[glyphname])
+			
+			textnode.setAttribute('x', str(H))
+			textnode.setAttribute('y', str(V))
+			textnode.appendChild(text)
+			
+			self.page.appendChild(textnode)
+		else:
+			log.warning("Don't know unicode string for '%s' character." % glyphname)
+
+		return hadv
+	
+	def save(self, filename, prettyXML=False):
+		if prettyXML:
+			log.warning("Pretty XML disabled in this mode")
+		
+		# save
+		f = open(filename, 'wb')
+		f.write(self.document.toxml(encoding="utf-8"))
+		f.close()
+	
+
 def convert_page(dvi, document):
 
 	h, v, w, x, y, z = 0,0,0,0,0,0	# DVI variables
-	fntnum = None			# DVI current font number
-	stack  = []			# DVI stack
+	fntnum = None					# DVI current font number
+	stack  = []						# DVI stack
 
-	color  = None			# current color
+	color  = None					# current color
+
+	command     = None
+	prevcommand = None
 
 	while dvi:
+		prevcommand  = command
 		command, arg = dviparser.get_token(dvi)
+
 		if command == 'put_char':
-			document.put_char(h, v, fntnum, arg, color)
+			document.put_char(h, v, fntnum, arg, color, prevcommand==command)
 
 		if command == 'set_char':
 			h += document.put_char(h, v, fntnum, arg, color)
@@ -399,6 +448,11 @@ if __name__ == '__main__':
 	parser.add_option("--paper-size",
 	                  dest="paper_size",
 					  default=None)
+	
+	parser.add_option("--generate-text",
+	                  action="store_true",
+	                  dest="generate_text",
+					  default=False)
 
 	(options, args) = parser.parse_args()
 	if not args:
@@ -479,6 +533,9 @@ if __name__ == '__main__':
 			mag *= float(options.scale)
 		except ValueError:
 			pass
+
+		if options.generate_text:
+			SVGDocument = SVGTextDocument
 
 		if options.single_file:
 			svg = SVGDocument(1.25 * mag, scale, unit_mm, (pw,ph))
