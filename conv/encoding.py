@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Encoding and ENC file support
-# $Id: encoding.py,v 1.3 2006-10-08 21:27:23 wojtek Exp $
+# $Id: encoding.py,v 1.4 2006-10-13 21:02:47 wojtek Exp $
 # 
 # license: BSD
 #
@@ -81,7 +81,7 @@ class EncodingDB:
 
 class ENCFileError(Exception):
 	def __init__(self, filename, strerror):
-		Exception.__init__()
+		Exception.__init__(self)
 		self.filename	= filename
 		self.strerror	= strerror
 	
@@ -92,7 +92,7 @@ def read_ENC(file):
 	"""
 	Function reads Type1 encoding file, and returns:
 	* encoding name
-	* character width table
+	* list of character names
 	"""
 	def stripcomment(string):
 		i = string.find('%')
@@ -106,6 +106,8 @@ def read_ENC(file):
 
 	# expeced format:
 	# /EncodingName [ /defs_256-times ] def
+	# or
+	# /EncodingName [ /defs_256-times ] ;
 	#
 	obp  = tmp.find('[')
 	cbp  = tmp.find(']')
@@ -121,7 +123,7 @@ def read_ENC(file):
 
 	# check if string ends with string 'def'
 	defstr = tmp[cbp+1:].strip()
-	if not (defstr == 'def'):
+	if defstr != 'def':
 		raise ENCFileError("List of must end with string 'def', but is '%s'" % defstr, file.name)
 
 	# get characters
