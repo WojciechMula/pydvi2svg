@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.7 2006-10-13 18:40:07 wojtek Exp $
+# $Id: fontsel.py,v 1.8 2006-10-13 21:04:07 wojtek Exp $
 # 
 # license: BSD
 #
@@ -431,13 +431,9 @@ def make_cache_file(fontname):
 		
 		# 2. get character name
 		glyph.name = node.getAttribute('glyph-name')
-		if  glyph.name == '':
+		if glyph.name == '':
 			log.error("There is a glyph without name, skipping it")
 			continue
-		elif glyph.name == "space":
-			glyph.unicode = u" "
-		else:
-			glyph.unicode = node.getAttribute('unicode')
 
 		# 3. get horiz-adv-x
 		if node.hasAttribute('horiz-adv-x'):
