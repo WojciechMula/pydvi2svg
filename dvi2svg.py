@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Main program
-# $Id: dvi2svg.py,v 1.7 2006-10-12 22:08:35 wojtek Exp $
+# $Id: dvi2svg.py,v 1.8 2006-10-13 18:39:19 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,6 +10,10 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 '''
+13.10.2006
+	- renamed class SVGDocument to SVGGfxDocument
+	- both SVGGfxDocument & SVGTextDocument utilize utils.group_element
+	  (code is much simplier)
 12.10.2006
 	- SVGTextDocument (started)
  6.10.2006
@@ -52,7 +56,7 @@
 	- convert single pages
 	- some fixes in rendering routines
 	- fonts managed by external object, not render itself
-	- added command line supprt
+	- added command line support
 	- fixed font scale calculation
 	- added separate class that produce SVG documents
 
@@ -75,12 +79,12 @@ from colors  import is_colorspecial, execute
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('dvi2svg')
 
-class SVGDocument:
+class SVGGfxDocument:
 	"""
 	Outputs glyphs
 	"""
 	def __init__(self, mag, scale, unit_mm, page_size):
-		self.mag		= mag		# maginication
+		self.mag		= mag		# maginification
 		self.scale		= scale		# additional scale
 		self.oneinch	= 25.4/unit_mm
 
@@ -121,7 +125,7 @@ class SVGDocument:
 		idstring = "c%d-%02x" % (fntnum, dvicode)
 
 		try:
-			_, glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
+			glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
 		except KeyError:
 			return 0.0
 
@@ -183,12 +187,15 @@ class SVGDocument:
 
 		self.page.appendChild(rect)
 	
+	def eop(self):
+		pass
+	
 	def save(self, filename, prettyXML=False):
 		# create defs
 		defs = self.document.createElement('defs')
 		for fntnum, dvicode in self.id:
 			try:
-				_, glyph, _, _ = fontsel.get_char(fntnum, dvicode)
+				glyph, _, _ = fontsel.get_char(fntnum, dvicode)
 			except KeyError:
 				continue
 
@@ -207,42 +214,235 @@ class SVGDocument:
 			f.write(self.document.toxml())
 		f.close()
 
-from unic import name_lookup
-class SVGTextDocument(SVGDocument):
+class SVGGfxDocument2:
 	"""
-	Outputs text
+	Outputs glyphs
 	"""
+	def __init__(self, mag, scale, unit_mm, page_size):
+		self.mag		= mag		# maginication
+		self.scale		= scale		# additional scale
+		self.oneinch	= 25.4/unit_mm
+
+		self.id		= Set()
+		self.scale2str	= lambda x: "%0.5f" % x
+		self.coord2str	= lambda x: "%0.3f" % x
+		
+		implementation = xml.dom.getDOMImplementation()
+		doctype = implementation.createDocumentType(
+			"svg",
+			"-//W3C//DTD SVG 1.1//EN",
+			"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd")
+		self.document = implementation.createDocument(None, "svg", doctype)
+
+		# set SVG implementation
+		self.svg      = self.document.documentElement
+		self.svg.setAttribute  ('xmlns', 'http://www.w3.org/2000/svg')
+		self.svg.setAttributeNS('xmlns', 'xmlns:xlink', "http://www.w3.org/1999/xlink")
+
+		self.svg.setAttribute('width',  '%smm' % str(page_size[0]))
+		self.svg.setAttribute('height', '%smm' % str(page_size[1]))
+	
+	def new_page(self):
+		self.chars = []
+		self.rules = []
+		pass
+	
 	def put_char(self, h, v, fntnum, dvicode, color=None, next=False):
 		try:
-			glyphname, glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
+			glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
 		except KeyError:
 			return 0.0
 
 		H  = self.scale * (h + self.oneinch)
 		V  = self.scale * (v + self.oneinch)
 
-
-		if name_lookup[glyphname]:
-			textnode = self.document.createElement('text')
-			text     = self.document.createTextNode(name_lookup[glyphname])
-			
-			textnode.setAttribute('x', str(H))
-			textnode.setAttribute('y', str(V))
-			textnode.appendChild(text)
-			
-			self.page.appendChild(textnode)
-		else:
-			log.warning("Don't know unicode string for '%s' character." % glyphname)
-
+		self.chars.append( (fntnum, dvicode, next, H, V, glyphscale, color) )
 		return hadv
+	
+	def put_rule(self, h, v, a, b, color=None):
+		self.rules.append( (h, v, a, b, color) )
+	
+	def eop(self):
+		new  = self.document.createElement
+		scale2str = self.scale2str
+		coord2str = self.coord2str
+
+		page = new('g')
+		page.setAttribute('transform', 'scale(%s)' % str(self.mag))
+		self.svg.appendChild(page)
+		
+		# 1. make rules (i.e. filled rectangles)
+		for (h,v, a, b, color) in self.rules:
+			rect = new('rect')
+			rect.setAttribute('x',      coord2str(self.scale * (h + self.oneinch)))
+			rect.setAttribute('y',      coord2str(self.scale * (v - a + self.oneinch)))
+			rect.setAttribute('width',  coord2str(self.scale * b))
+			rect.setAttribute('height', coord2str(self.scale * a))
+			if color:
+				rect.setAttribute('fill', color)
+
+			page.appendChild(rect)
+
+		# 2. process chars
+		from utils import group_elements as group
+
+		# (fntnum, dvicode, next, H, V, glyphscale, color)
+
+		# group chars with same glyphscale
+		byglyphscale = group(self.chars, value=lambda x: x[5])
+		for (glyphscale, chars2) in byglyphscale:
+			g = new('g')
+			g.setAttribute('transform', 'scale(%s,%s)' % (scale2str(glyphscale), scale2str(-glyphscale) ))
+			page.appendChild(g)
+
+			# then group by V
+			byV = group(chars2, value=lambda x: x[4])
+			for (V, chars3) in byV:
+				g1 = new('g')
+				g1.setAttribute('transform', 'translate(0,%s)' % coord2str(-V/glyphscale))
+				g.appendChild(g1)
+
+				for char in chars3:
+					c = new('use')
+					g1.appendChild(c)
+
+					H        = char[3]
+					fntnum   = char[0]
+					dvicode  = char[1]
+					color    = char[6]
+					idstring = "%d-%02x" % (fntnum, dvicode)
+
+					c.setAttributeNS('xlink', 'xlink:href', '#'+idstring)
+					c.setAttribute('x', coord2str(H/glyphscale))
+					if color:
+						c.setAttribute('style', 'fill:%s' % color)
+					
+		#rof
+
+	
+	def save(self, filename, prettyXML=False):
+		# create defs
+		defs = self.document.createElement('defs')
+		for fntnum, dvicode in self.id:
+			try:
+				glyph, _, _ = fontsel.get_char(fntnum, dvicode)
+			except KeyError:
+				continue
+
+			path = self.document.createElement('path')
+			path.setAttribute("id", "%d-%02x" % (fntnum, dvicode))
+			path.setAttribute("d",  glyph)
+			defs.appendChild(path)
+
+		self.svg.insertBefore(defs, self.svg.firstChild)
+
+		# save
+		f = open(filename, 'wb')
+		if prettyXML:
+			f.write(self.document.toprettyxml())
+		else:
+			f.write(self.document.toxml())
+		f.close()
+
+
+from unic import name_lookup
+class SVGTextDocument(SVGGfxDocument2):
+	"""
+	Outputs text
+	"""
+	def put_char(self, h, v, fntnum, dvicode, color=None, next=False):
+		try:
+			glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
+			glyphname = fontsel.get_char_name(fntnum, dvicode)
+		except KeyError:
+			return 0.0
+
+		H  = self.scale * (h + self.oneinch)
+		V  = self.scale * (v + self.oneinch)
+
+		self.chars.append( (H, V, fntnum, glyphname, next) )
+
+		# return horizontal advance
+		return hadv
+	
+	def eop(self):
+		new  = self.document.createElement
+		scale2str = self.scale2str
+		coord2str = self.coord2str
+
+		page = new('g')
+		page.setAttribute('transform', 'scale(%s)' % str(self.mag))
+		self.svg.appendChild(page)
+		
+		# 1. make rules (i.e. filled rectangles)
+		for (h,v, a, b, color) in self.rules:
+			rect = new('rect')
+			rect.setAttribute('x',      coord2str(self.scale * (h + self.oneinch)))
+			rect.setAttribute('y',      coord2str(self.scale * (v - a + self.oneinch)))
+			rect.setAttribute('width',  coord2str(self.scale * b))
+			rect.setAttribute('height', coord2str(self.scale * a))
+			if color:
+				rect.setAttribute('fill', color)
+
+			page.appendChild(rect)
+
+		# 2. process chars
+		from utils import group_elements as group
+
+		# (H, V, fntnum, glyphname, next)
+
+		# group chars typeseted with the same font
+		byfntnum = group(self.chars, value=lambda x: x[2])
+		for (fntnum, chars2) in byfntnum:
+			g = new('tspan')
+			page.appendChild(g)
+
+			font  = fontsel.get_font(fntnum)
+			style = "font-family:%s; font-size:%0.1fpt" % (font.fontfamily, font.designsize)
+			s,d   = font.sd
+			if s != d:	# scaled font
+				style += "; font-scale: %0.1f%%" % ((100.0*s)/d)
+
+			g.setAttribute('style', style)
+
+			# then group characters
+			strings = group(chars2, value=lambda x: x[4])
+			for cont, chars3 in strings:
+				if cont: # sequence of set_char commands
+					t = new('text')
+					g.appendChild(t)
+					H = chars3[0][0]
+					V = chars3[0][0]
+
+					t.setAttribute("x", coord2str(H))
+					t.setAttribute("y", coord2str(V))
+
+					# TODO: detect unknown characters and mark them
+					# TODO: use colors!
+
+					text = [name_lookup[item[3]] for item in chars3]
+					text = self.document.createTextNode(''.join(text))
+					t.appendChild(text)
+				else:
+					for char in chars3:
+						t = new('text')
+						g.appendChild(t)
+						H = chars3[0][0]
+						V = chars3[0][0]
+
+						t.setAttribute("x", coord2str(H))
+						t.setAttribute("y", coord2str(V))
+						t.appendChild(self.document.createTextNode(char[3]))
+
+		#rof
 	
 	def save(self, filename, prettyXML=False):
 		if prettyXML:
-			log.warning("Pretty XML disabled in this mode")
+			log.warning("Pretty XML is disabled in text mode")
 		
 		# save
 		f = open(filename, 'wb')
-		f.write(self.document.toxml(encoding="utf-8"))
+		f.write(self.document.toprettyxml(encoding="utf-8"))
 		f.close()
 	
 
@@ -262,10 +462,10 @@ def convert_page(dvi, document):
 		command, arg = dviparser.get_token(dvi)
 
 		if command == 'put_char':
-			document.put_char(h, v, fntnum, arg, color, prevcommand==command)
+			document.put_char(h, v, fntnum, arg, color)
 
 		if command == 'set_char':
-			h += document.put_char(h, v, fntnum, arg, color)
+			h += document.put_char(h, v, fntnum, arg, color, prevcommand==command)
 
 		elif command == 'nop':
 			pass
@@ -273,7 +473,8 @@ def convert_page(dvi, document):
 			h, v, w, x, y, z = 0,0,0,0,0,0
 			fntnum  = None
 		elif command == 'eop':
-			break	# ok, we finished this page
+			document.eop() # ok, we finished this page
+			break
 		elif command == 'push':
 			stack.insert(0, (h, v, w, x, y, z))
 		elif command == 'pop':
@@ -536,6 +737,8 @@ if __name__ == '__main__':
 
 		if options.generate_text:
 			SVGDocument = SVGTextDocument
+		else:
+			SVGDocument = SVGGfxDocument2
 
 		if options.single_file:
 			svg = SVGDocument(1.25 * mag, scale, unit_mm, (pw,ph))
