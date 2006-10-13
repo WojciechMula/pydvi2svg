@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.6 2006-10-12 22:08:35 wojtek Exp $
+# $Id: fontsel.py,v 1.7 2006-10-13 18:40:07 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,8 +10,10 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
-12.10.2006
-	- get_char returns name too
+13.10.2006
+	- DVI font contains s and d (original scale saved in DVI file)
+	- added get_char_name
+	- added get_font
  6.10.2006
  	- added fontDB functions:
 		- load fonts at given scale (create_DVI_font)
@@ -77,8 +79,6 @@ config.dvi_fonts		= {}
 def create_DVI_font(fontname, k, s, d):
 	"""
 	Create a font identified by number k scaled with factor s/d.
-	If encoding is None, then use default encoding assigned
-	to fontname.
 	"""
 
 	# load font
@@ -89,6 +89,9 @@ def create_DVI_font(fontname, k, s, d):
 
 	font = DVIFont()
 	font.name			= fontname
+	font.fontfamily		= fontdata.fontfamily
+	font.designsize		= fontdata.designsize
+	font.sd				= (s,d)
 	font.scale			= float(s)/d * fontdata.designsize/1000.0
 	font.hadvscale		= float(s)/1000
 	font.glyphs_dict	= fontdata.glyphs_dict
@@ -96,10 +99,16 @@ def create_DVI_font(fontname, k, s, d):
 
 	config.dvi_fonts[k] = font
 
+def get_font(fontnum):
+	return config.dvi_fonts[fontnum]
+
+def get_char_name(fontnum, dvicode):
+	font = config.dvi_fonts[fontnum]
+	return font.encoding[dvicode]
+
 def get_char(fontnum, dvicode):
 	"""
 	Returns following data releated to character:
-	- glyphname
 	- glyph (shape)
 	- shape scale factor needed to fit current font size
 	- width of char in TeX units
@@ -109,7 +118,7 @@ def get_char(fontnum, dvicode):
 	glyphname = font.encoding[dvicode]
 	try:
 		glyph = font.glyphs_dict[glyphname]
-		return glyphname, glyph.path, font.scale, glyph.hadv * font.hadvscale
+		return glyph.path, font.scale, glyph.hadv * font.hadvscale
 	except KeyError, e:
 		log.error("%s: missing char '%s'" % (font.name, glyphname))
 		raise e
@@ -309,7 +318,7 @@ def get_designsize(fontname):
 
 	Does following steps:
 	- first checks a cache (loaded from setup.font_lookup)
-	- if checktfm==True seeks for corresponding TFM file and reads designsize name
+	- if checktfm==True seeks for corresponding TFM file and reads designsize
 	"""
 	if fontname in config.fonts_lookup:
 		encoding, designsize = config.fonts_lookup[fontname]
@@ -386,15 +395,22 @@ def make_cache_file(fontname):
 	# b. get font element
 	try:
 		fontnode = data.getElementsByTagName('font')[0]
-		# get default horizontal advance if any
+		# get default horizontal advance (if any)
 		if fontnode.hasAttribute('horiz-adv-x'): 
 			default_hadvx = float(fontnode.getAttribute('horiz-adv-x'))
 		else:
 			default_hadvx = None
 	except IndexError:
 		raise FontError("There should be at least one <font> element in SVG file")
+		
+	# d. get font face name
+	if fontnode.getAttribute('font-family'):
+		font.fontfamily = fontnode.getAttribute('font-family')
+	else:
+		font.fontfamily = fontname
 
-	# d. load fonts
+	
+	# e. load fonts
 	font.glyphs_dict = {}
 	for node in fontnode.getElementsByTagName('glyph'):
 
