@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Main program
-# $Id: dvi2svg.py,v 1.8 2006-10-13 18:39:19 wojtek Exp $
+# $Id: dvi2svg.py,v 1.9 2006-10-14 21:25:08 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,6 +10,8 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 '''
+14.10.2006
+	- small fixes
 13.10.2006
 	- renamed class SVGDocument to SVGGfxDocument
 	- both SVGGfxDocument & SVGTextDocument utilize utils.group_element
@@ -76,145 +78,10 @@ from binfile import binfile
 from sets import Set
 from colors  import is_colorspecial, execute
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger('dvi2svg')
 
 class SVGGfxDocument:
-	"""
-	Outputs glyphs
-	"""
-	def __init__(self, mag, scale, unit_mm, page_size):
-		self.mag		= mag		# maginification
-		self.scale		= scale		# additional scale
-		self.oneinch	= 25.4/unit_mm
-
-		self.id		= Set()
-		self.pageno	= 0
-		
-		self.prevscale	= None
-		self.prevy    	= None
-		self.curblock	= None
-		self.cury    	= None
-		
-		implementation = xml.dom.getDOMImplementation()
-		doctype = implementation.createDocumentType(
-			"svg",
-			"-//W3C//DTD SVG 1.1//EN",
-			"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd")
-		self.document = implementation.createDocument(None, "svg", doctype)
-
-		# set SVG implementation
-		self.svg      = self.document.documentElement
-		self.svg.setAttribute  ('xmlns', 'http://www.w3.org/2000/svg')
-		self.svg.setAttributeNS('xmlns', 'xmlns:xlink', "http://www.w3.org/1999/xlink")
-
-		self.svg.setAttribute('width',  '%smm' % str(page_size[0]))
-		self.svg.setAttribute('height', '%smm' % str(page_size[1]))
-	
-	def new_page(self):
-		self.pageno += 1
-		self.page = self.document.createElement('g')
-		self.page.setAttribute('transform', 'scale(%f)' % self.mag)
-		self.page.setAttribute('id', 'page%04d' % self.pageno)
-
-		self.svg.appendChild(self.page)
-		return self.page
-	
-	def put_char(self, h, v, fntnum, dvicode, color=None, next=False):
-		self.id.add( (fntnum, dvicode) )
-		idstring = "c%d-%02x" % (fntnum, dvicode)
-
-		try:
-			glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
-		except KeyError:
-			return 0.0
-
-		H  = self.scale * (h + self.oneinch)
-		V  = self.scale * (v + self.oneinch)
-
-		use = self.document.createElement('use')
-		use.setAttributeNS('xlink', 'xlink:href', '#'+idstring)
-
-		use.setAttribute('x', str( H/glyphscale))
-		if color:
-			use.setAttribute('style', 'fill:%s' % color)
-
-		newscale = self.prevscale != glyphscale
-		newy     = self.prevy != -V/glyphscale or newscale
-			
-		if newy and self.cury and len(self.cury.childNodes) == 1:
-			tmp = self.cury.firstChild
-			tmp.setAttribute('y', str(self.cury.ytransform))
-
-			self.cury.removeChild(tmp)
-			self.cury.parentNode.replaceChild(tmp, self.cury)
-		
-		if newscale and self.curblock and len(self.curblock.childNodes) == 1:
-
-			tmp = self.curblock.firstChild
-			if tmp.nodeName == 'use':
-				scale = str(self.curblock.scale)
-				tmp.setAttribute('transform', 'scale(%s,-%s)' % (scale, scale))
-			
-				self.curblock.removeChild(tmp)
-				self.curblock.parentNode.replaceChild(tmp, self.curblock)
-
-		if newscale:
-			self.curblock = self.document.createElement('g')
-			self.curblock.setAttribute('transform', 'scale(%s,%s)' % (str(glyphscale), str(-glyphscale)))
-			self.curblock.scale = glyphscale
-			self.page.appendChild(self.curblock)
-			self.prevscale = glyphscale
-
-		if newy:
-			self.cury = self.document.createElement('g')
-			self.cury.setAttribute('transform', 'translate(0,%s)' % str(-V/glyphscale))
-			self.cury.ytransform = -V/glyphscale
-			self.curblock.appendChild(self.cury)
-			self.prevy = -V/glyphscale
-
-		self.cury.appendChild(use)
-		return hadv
-	
-	def put_rule(self, h, v, a, b, color=None):
-		rect = self.document.createElement('rect')
-		rect.setAttribute('x',      str(self.scale * (h + self.oneinch)))
-		rect.setAttribute('y',      str(self.scale * (v - a + self.oneinch)))
-		rect.setAttribute('width',  str(self.scale * b))
-		rect.setAttribute('height', str(self.scale * a))
-		if color:
-			rect.setAttribute('fill', color)
-
-		self.page.appendChild(rect)
-	
-	def eop(self):
-		pass
-	
-	def save(self, filename, prettyXML=False):
-		# create defs
-		defs = self.document.createElement('defs')
-		for fntnum, dvicode in self.id:
-			try:
-				glyph, _, _ = fontsel.get_char(fntnum, dvicode)
-			except KeyError:
-				continue
-
-			path = self.document.createElement('path')
-			path.setAttribute("id", "c%d-%02x" % (fntnum, dvicode))
-			path.setAttribute("d",  glyph)
-			defs.appendChild(path)
-
-		self.svg.insertBefore(defs, self.svg.firstChild)
-
-		# save
-		f = open(filename, 'wb')
-		if prettyXML:
-			f.write(self.document.toprettyxml())
-		else:
-			f.write(self.document.toxml())
-		f.close()
-
-class SVGGfxDocument2:
 	"""
 	Outputs glyphs
 	"""
@@ -252,6 +119,8 @@ class SVGGfxDocument2:
 			glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
 		except KeyError:
 			return 0.0
+
+		self.id.add( (fntnum, dvicode) )
 
 		H  = self.scale * (h + self.oneinch)
 		V  = self.scale * (v + self.oneinch)
@@ -346,7 +215,7 @@ class SVGGfxDocument2:
 
 
 from unic import name_lookup
-class SVGTextDocument(SVGGfxDocument2):
+class SVGTextDocument(SVGGfxDocument):
 	"""
 	Outputs text
 	"""
@@ -738,7 +607,7 @@ if __name__ == '__main__':
 		if options.generate_text:
 			SVGDocument = SVGTextDocument
 		else:
-			SVGDocument = SVGGfxDocument2
+			SVGDocument = SVGGfxDocument
 
 		if options.single_file:
 			svg = SVGDocument(1.25 * mag, scale, unit_mm, (pw,ph))
