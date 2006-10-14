@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Encoding and ENC file support
-# $Id: encoding.py,v 1.4 2006-10-13 21:02:47 wojtek Exp $
+# $Id: encoding.py,v 1.5 2006-10-14 21:26:36 wojtek Exp $
 # 
 # license: BSD
 #
@@ -106,8 +106,6 @@ def read_ENC(file):
 
 	# expeced format:
 	# /EncodingName [ /defs_256-times ] def
-	# or
-	# /EncodingName [ /defs_256-times ] ;
 	#
 	obp  = tmp.find('[')
 	cbp  = tmp.find(']')
