@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.8 2006-10-13 21:04:07 wojtek Exp $
+# $Id: fontsel.py,v 1.9 2006-10-14 21:25:43 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,6 +10,10 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
+15.10.2006
+	- guess_encoding
+	- split get_encoding: get_encoding_from_TFM, get_encoding_from_AFM,
+	  get_encoding_from_cache, get_encoding_from_MAPfiles
 13.10.2006
 	- DVI font contains s and d (original scale saved in DVI file)
 	- added get_char_name
@@ -41,6 +45,8 @@ import re
 import os
 import cPickle
 import logging
+
+from sets import Set
 
 import setup
 import findfile
@@ -226,10 +232,109 @@ def load_font_info():
 	
 	file.close()
 
+def get_encoding_from_TFM(fontname):
+	log.debug('checking TFM file')
+	filename = findfile.locate(fontname + '.tfm')
+	if filename:
+		log.debug("... using '%s'" % filename)
+		file = binfile(filename, 'rb')
+		try:
+			_, _, encodingname, _ = read_TFM(file)
+		except TFMError, e:
+			log.error("... TFM error: %s" % str(TFMError))
+		else:
+			file.close()
+			try:
+				encoding = config.encoding_lookup[encodingname]
+				log.debug("... encoding %s" % encoding)
+				return (True, encoding)
+			except KeyError:
+				log.error("... font %s: unknown TeX encoding: '%s'" % (fontname, encodingname))
+	else:
+		log.debug("... TFM file not found")
+		return None
+
+def get_encoding_from_AFM(fontname):
+	log.debug('checking AFM file')
+	filename = findfile.locate(fontname + '.afm')
+	if filename:
+		log.debug("... using '%s'" % filename)
+		file = open(filename, 'r')
+		try:
+			encodingname, _, _ = read_AFM(file)
+		except AFMError, e:
+			log.error("... AFM error" + str(AFMError))
+		else:
+			file.close()
+			try:
+				if encodingname:
+					encoding = config.encoding_lookup[encodingname]
+					log.debug("... ... encoding %s" % encoding)
+					return (True, encoding)
+				else:
+					log.error("... unknown AFM encoding: '%s'" % encodingname)
+			except KeyError:
+				log.error("... unknown AFM encoding: '%s'" % encodingname)
+	else:
+		log.debug("... AFM file not found")
+		return None
+
+def get_encoding_from_cache(fontname):
+	if fontname in config.fonts_lookup:
+		encoding, designsize = config.fonts_lookup[fontname]
+		log.debug("... encoding %s (got from '%s')" % (encoding, setup.font_lookup))
+		return (False, encoding)
+	else:
+		return None
 
 tex_map_file_list = None
-def get_encoding(fontname, checktfm=True, checkafm=True, grepmap=False):
+def get_encoding_from_MAPfiles(fontname):
 	global tex_map_file_list
+
+	log.debug("... checking map files")
+	if tex_map_file_list != None:
+		log.debug("... ... list of map files is present.")
+	else:
+		log.debug("... ... list of map files dosn't exists - getting one (it may take a while...)")
+		tex_map_file_list = findfile.find_all(setup.tex_paths, ".map")
+
+	for filename in tex_map_file_list:
+		log.debug("... ... ... scanning %s" % filename)
+		enc = read_MAP(filename, fontname)
+		if enc:
+			log.debug("... ... ... encoding %s" % enc)
+			return enc
+
+enc_files_list = None
+def guess_encoding(font_names):
+	global enc_file_list
+
+	log.debug("... checking enc files")
+	if enc_files_list != None:
+		log.debug("... enc files already loaded")
+	else:
+		log.debug("... searching for enc files")
+		dirs      = [setup.encoding_path] + setup.tex_paths
+		enc_files = findfile.find_all(dirs, '.enc')
+		for file_path in enc_files:
+			try:
+				name_list = Set(encoding.read_ENC(open(file_path, 'r'))[1])
+			except encoding.ENCFileError, e:
+				log.debug("ENCFileError: %s" % str(e))
+	
+	min_diff = 256*4
+	all      = []
+	for file_path, enc_names in enc_files_list:
+		diff = len(font_names.difference(enc_names))
+		all  = (file_path, diff)
+		if diff < min_diff:
+			min_diff = diff
+	
+	# return best matching
+	return [v for v in all if v[1] == mindiff]
+
+
+def get_encoding(fontname, checktfm=False, checkafm=False, grepmap=True):
 	"""
 	Function (tries to) determine encoding of given font.
 
@@ -240,71 +345,18 @@ def get_encoding(fontname, checktfm=True, checkafm=True, grepmap=False):
 	- if checktfm==True seeks for corresponding TFM file and reads encoding name
 	- if checkafm==True seeks for corresponding AFM file and reads encoding name
 	"""
-	if fontname in config.fonts_lookup:
-		encoding, designsize = config.fonts_lookup[fontname]
-		log.debug("... encoding %s (got from '%s')" % (encoding, setup.font_lookup))
-		return (False, encoding)
 	
 	if grepmap:
-		log.debug("... checking map files")
-		if tex_map_file_list != None:
-			log.debug("... ... list of map files is present.")
-		else:
-			log.debug("... ... list of map files dosn't exists - getting one (it may take a while...)")
-			tex_map_file_list = findfile.find_all(setup.tex_paths, ".map")
-
-		for filename in tex_map_file_list:
-			log.debug("... ... ... scanning %s" % filename)
-			enc = read_MAP(filename, fontname)
-			if enc:
-				log.debug("... ... ... encoding %s" % enc)
-				return enc
 	
 	if checktfm:
-		log.debug('... checking TFM file')
-		filename = findfile.locate(fontname + '.tfm')
-		if filename:
-			log.debug("... ... using '%s'" % filename)
-			file = binfile(filename, 'rb')
-			try:
-				_, _, encodingname, _ = read_TFM(file)
-			except TFMError, e:
-				log.error("... ... TFM error: %s" % str(TFMError))
-			else:
-				file.close()
-				try:
-					encoding = config.encoding_lookup[encodingname]
-					log.debug("... ... encoding %s" % encoding)
-					return (True, encoding)
-				except KeyError:
-					log.error("... ... font %s: unknown TeX encoding: '%s'" % (fontname, encodingname))
-		else:
-			log.debug("... ... TFM file not found")
-	
+		res = get_encoding_from_TFM(fontname)
+		if res:
+			return res
 	
 	if checkafm:
-		log.debug('... checking AFM file')
-		filename = findfile.locate(fontname + '.afm')
-		if filename:
-			log.debug("... ... using '%s'" % filename)
-			file = open(filename, 'r')
-			try:
-				encodingname, _, _ = read_AFM(file)
-			except AFMError, e:
-				log.error("... ... AFM error" + str(AFMError))
-			else:
-				file.close()
-				try:
-					if encodingname:
-						encoding = config.encoding_lookup[encodingname]
-						log.debug("... ... ... encoding %s" % encoding)
-						return (True, encoding)
-					else:
-						log.error("... ... unknown AFM encoding: '%s'" % encodingname)
-				except KeyError:
-					log.error("... ... unknown AFM encoding: '%s'" % encodingname)
-		else:
-			log.debug("... ... AFM file not found")
+		res = get_encoding_from_TFM(fontname)
+		if res:
+			return res
 	
 
 	# encoding not resolved
