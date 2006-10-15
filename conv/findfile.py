@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # File searching functions
-# $Id: findfile.py,v 1.1 2006-10-06 17:55:41 wojtek Exp $
+# $Id: findfile.py,v 1.2 2006-10-15 16:15:28 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,6 +10,11 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __change__ = '''
+16.10.2006
+	- generalized find_file & find_all_files (removed find_all, findfile)
+	- upated kpsewhich
+15.10.2006
+	- find_all returns only files
 5.10.2006
 	- find_all
 4.10.2006
@@ -21,63 +26,74 @@ __change__ = '''
 import os
 import types
 
-def find_all(search_paths, extension):
-	def aux(path, extension, list=[]):
-		dir = os.listdir(path)
-		list.extend( [os.path.join(path, name) for name in dir if name.endswith(extension) ] )
+def find_file(paths, pred, enterdir=lambda path, depth: True):
+	"""
+	Function searches all paths listed on paths list and
+	return first file that pred(file) is True.  Subdirectories
+	are visited only if function 'enterdir' return True.
 
+	Function 'pred' must accept two arguments: path, filename
+	and returns either True or False
+
+	Function 'enterdir' must accept two arguments: path
+	and depth in directory tree (counted from 0).
+	"""
+	def aux(path, pred, enterdir, level):
+		dir = os.listdir(path)
 		for file in dir:
-			newpath = os.path.join(path, file)
-			if os.path.isdir(newpath):
-				aux(newpath, extension, list)
-
-		return list
-	#fed
-
-	if type(search_paths) in types.StringTypes:
-		return aux(search_paths, extension, [])
-	
-	else:
-		list = []
-		for path in search_paths:
-			aux(path, extension, list)
-		return list
-	
-
-def findfile(filename, search_paths, ignorecase=False):
-	def aux(filename, path):
-		dir = os.listdir(path)
-		if ignorecase:
-			try:
-				dir_lower = [name.lower() for name in dir]
-				filename  = dir[dir_lower.index(filename.lower())]
-				return os.path.join(path, filename)
-			except ValueError:
-				pass
-		else:
-			if filename in dir:
-				return os.path.join(path, filename)
+			if pred(path, file):
+				return os.path.join(path, file)
 
 		# not found, go deeper	
 		for file in dir:
 			newpath = os.path.join(path, file)
-			if os.path.isdir(newpath):
-				result = aux(filename, newpath)
+			if os.path.isdir(newpath) and enterdir(newpath, level):
+				result = aux(newpath, pred, enterdir, level+1)
 				if result:
 					return result
 		return None
-	#fed
 
-	if type(search_paths) in types.StringTypes:
-		result = aux(filename, search_paths)
-		if result != None: return result
 	
+	if type(paths) in types.StringTypes:
+		return aux(paths, pred, enterdir, 0)
 	else:
-		for path in search_paths:
-			result = aux(path)
-			if result != None: return result
+		for path in paths:
+			file = aux(path, pred, enterdir, 0)
+			if file:
+				return file
 
-	return None
+def find_all_files(paths, pred, enterdir=lambda path, depth: True):
+	"""
+	Function searches all paths listed on paths list and
+	return all files that pred(file) is True.  Subdirectories
+	are visited only if function 'enterdir' return True.
+
+	Function 'pred' must accept two arguments: path, filename
+	and returns either True or False
+
+	Function 'enterdir' must accept two arguments: path
+	and depth in directory tree (counted from 0).
+	"""
+	def aux(path, pred, enterdir, level, list):
+		dir = os.listdir(path)
+		# XXX: use list comprehension
+		for file in dir:
+			if pred(path, file):
+				list.append(os.path.join(path, file))
+
+		# go deepper	
+		for file in dir:
+			newpath = os.path.join(path, file)
+			if os.path.isdir(newpath) and enterdir(newpath, level):
+				aux(newpath, pred, enterdir, level+1, list)
+	
+	L = []
+	if type(paths) in types.StringTypes:
+		aux(paths, pred, enterdir, 0, L)
+	else:
+		for path in paths:
+			file = aux(path, pred, enterdir, 0, L)
+	return L
 
 kpsewhich_available = True
 def kpsewhich(filename):
@@ -98,6 +114,7 @@ def kpsewhich(filename):
 		return None
 	
 def locate(filename, search_paths=[]):
-	return kpsewhich(filename) or findfile(filename, search_paths)
+	return kpsewhich(filename) or \
+	       find_file(search_paths, pred=lambda p, f: f==filename)
 	
 # vim: ts=4 sw=4
