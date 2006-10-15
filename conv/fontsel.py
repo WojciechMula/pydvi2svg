@@ -2,8 +2,8 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.9 2006-10-14 21:25:43 wojtek Exp $
-# 
+# $Id: fontsel.py,v 1.10 2006-10-15 16:16:28 wojtek Exp $
+#
 # license: BSD
 #
 # author: Wojciech Muła
@@ -11,6 +11,9 @@
 
 __changelog__ = '''
 15.10.2006
+	- removed get_encoding
+	- encoding is now detrmined inside function create_DVI_font
+14.10.2006
 	- guess_encoding
 	- split get_encoding: get_encoding_from_TFM, get_encoding_from_AFM,
 	  get_encoding_from_cache, get_encoding_from_MAPfiles
@@ -50,6 +53,7 @@ from sets import Set
 
 import setup
 import findfile
+import encoding
 
 from binfile  import binfile
 from metrics  import read_TFM, TFMError, read_AFM, AFMError, read_MAP
@@ -69,7 +73,7 @@ class Config(object):
 
 config = Config()
 
-# table using to translate long encoding names into shorter form
+# table use to translate long encoding names into shorter form
 config.encoding_lookup	= {}
 
 # dict contains trivial info about fonts: its
@@ -82,7 +86,7 @@ config.fonts			= {}
 # created DVI fonts
 config.dvi_fonts		= {}
 
-def create_DVI_font(fontname, k, s, d):
+def create_DVI_font(fontname, k, s, d, findenc):
 	"""
 	Create a font identified by number k scaled with factor s/d.
 	"""
@@ -101,8 +105,62 @@ def create_DVI_font(fontname, k, s, d):
 	font.scale			= float(s)/d * fontdata.designsize/1000.0
 	font.hadvscale		= float(s)/1000
 	font.glyphs_dict	= fontdata.glyphs_dict
-	font.encoding		= encodingDB.getencodingtbl(fontdata.encoding)
 
+
+	enc = None
+	for method in findenc:
+		if method == 'c':	# load from cache
+			try:
+				enc = config.fonts_lookup[fontname][0]
+				if enc:
+					log.debug("%s: font encoding is %s (cache)", fontname, enc)
+					break
+			except KeyError:
+				pass
+
+		elif method == 't':	# load from TFM
+			try:
+				enc = get_encoding_from_TFM(fontname)
+				if enc:
+					log.debug("%s: font encoding is %s (TFM)", fontname, enc)
+					break
+			except TFMError, e:
+				log.debug("TFMError: %s", str(e))
+
+		elif method == 'a':	# load from AFM:
+			try:
+				enc = get_encoding_from_AFM(fontname)
+				if enc:
+					log.debug("%s: font encoding is %s (AFM)", fontname, enc)
+					break
+			except AFMError, e:
+				log.debug("AFMError: %s", str(e))
+
+		elif method == 'm':	# grep MAP files
+			enc = get_encoding_from_MAPfiles(fontname)
+			if enc:
+				log.debug("%s: font encoding is %s (MAP)", fontname, enc)
+				break
+
+		elif method == 'g':	# compare with all ENC files
+			glyph_names = Set(font.glyphs_dict.keys())
+			enc_list    = guess_encoding(glyph_names)
+
+			if enc_list:
+				if len(enc_list) == 1:	# ok(?), one enc file
+					enc = enc_list[0][0]
+					log.debug("%s: font encoding is %s (ENC)", fontname, enc)
+				else:
+					tmp = ', '.join([v[0] for v in enc_list])
+					raise FontError("Guess encoding: found more then one encoding file that matches '%s'.  Here is a list of files: %s" % (fontname, tmp))
+				
+	#rof
+	
+	if not enc:
+		raise FontError("Can't determine encoding of font '%s'.  Provide this information with --enc switch." % fontname)
+	
+	
+	font.encoding = encodingDB.getencodingtbl(enc)
 	config.dvi_fonts[k] = font
 
 def get_font(fontnum):
@@ -132,7 +190,7 @@ def get_char(fontnum, dvicode):
 def preload(enc_repl={}):
 	log.debug("Loading encoding names lookup from '%s'" % setup.enc_lookup)
 	load_enc_lookup()
-	
+
 	log.debug("Loading font info from '%s'" % setup.font_lookup)
 	load_font_info()
 	for fontname, newenc in enc_repl.iteritems():
@@ -159,14 +217,8 @@ def load_font(fontname):
 			log.debug("Loading font '%s' from cache file" % fontname)
 			config.fonts[fontname] = font = cPickle.load(open(filename, 'rb'))
 
-	if fontname in config.fonts_lookup:
-		if font.encoding != config.fonts_lookup[fontname][0]:
-			newencoding = config.fonts_lookup[fontname][0]
-			log.debug("Overriding font encoding (%s->%s)" % (font.encoding, newencoding))
-			font.encoding = newencoding
-
 	return font
-	
+
 
 def load_enc_lookup():
 	try:
@@ -196,7 +248,7 @@ def load_enc_lookup():
 			# wrong number of fields
 			log.warning("... line %d has wrong format, skipping" % (i+1))
 			continue
-	
+
 	file.close()
 
 def load_font_info():
@@ -229,12 +281,12 @@ def load_font_info():
 			# wrong number of fields
 			log.waring("... line %d has wrong format, skipping" % (file.name, i+1))
 			continue
-	
+
 	file.close()
 
 def get_encoding_from_TFM(fontname):
 	log.debug('checking TFM file')
-	filename = findfile.locate(fontname + '.tfm')
+	filename = findfile.locate(fontname + '.tfm', setup.tex_paths)
 	if filename:
 		log.debug("... using '%s'" % filename)
 		file = binfile(filename, 'rb')
@@ -247,7 +299,7 @@ def get_encoding_from_TFM(fontname):
 			try:
 				encoding = config.encoding_lookup[encodingname]
 				log.debug("... encoding %s" % encoding)
-				return (True, encoding)
+				return encoding
 			except KeyError:
 				log.error("... font %s: unknown TeX encoding: '%s'" % (fontname, encodingname))
 	else:
@@ -256,7 +308,7 @@ def get_encoding_from_TFM(fontname):
 
 def get_encoding_from_AFM(fontname):
 	log.debug('checking AFM file')
-	filename = findfile.locate(fontname + '.afm')
+	filename = findfile.locate(fontname + '.afm', setup.tex_paths)
 	if filename:
 		log.debug("... using '%s'" % filename)
 		file = open(filename, 'r')
@@ -270,7 +322,7 @@ def get_encoding_from_AFM(fontname):
 				if encodingname:
 					encoding = config.encoding_lookup[encodingname]
 					log.debug("... ... encoding %s" % encoding)
-					return (True, encoding)
+					return encoding
 				else:
 					log.error("... unknown AFM encoding: '%s'" % encodingname)
 			except KeyError:
@@ -279,13 +331,6 @@ def get_encoding_from_AFM(fontname):
 		log.debug("... AFM file not found")
 		return None
 
-def get_encoding_from_cache(fontname):
-	if fontname in config.fonts_lookup:
-		encoding, designsize = config.fonts_lookup[fontname]
-		log.debug("... encoding %s (got from '%s')" % (encoding, setup.font_lookup))
-		return (False, encoding)
-	else:
-		return None
 
 tex_map_file_list = None
 def get_encoding_from_MAPfiles(fontname):
@@ -296,7 +341,11 @@ def get_encoding_from_MAPfiles(fontname):
 		log.debug("... ... list of map files is present.")
 	else:
 		log.debug("... ... list of map files dosn't exists - getting one (it may take a while...)")
-		tex_map_file_list = findfile.find_all(setup.tex_paths, ".map")
+
+		def mappred(path, filename):
+			return filename.endswith('.map')
+
+		tex_map_file_list = findfile.find_all_files(setup.tex_paths, mappred)
 
 	for filename in tex_map_file_list:
 		log.debug("... ... ... scanning %s" % filename)
@@ -305,64 +354,42 @@ def get_encoding_from_MAPfiles(fontname):
 			log.debug("... ... ... encoding %s" % enc)
 			return enc
 
-enc_files_list = None
+enc_file_list = None
 def guess_encoding(font_names):
 	global enc_file_list
 
 	log.debug("... checking enc files")
-	if enc_files_list != None:
+	if enc_file_list != None:
 		log.debug("... enc files already loaded")
 	else:
 		log.debug("... searching for enc files")
 		dirs      = [setup.encoding_path] + setup.tex_paths
-		enc_files = findfile.find_all(dirs, '.enc')
+
+		def encpred(path, filename):
+			return filename.endswith('.enc')
+
+		enc_file_list = []
+		enc_files     = findfile.find_all_files(dirs, encpred)
+
 		for file_path in enc_files:
 			try:
 				name_list = Set(encoding.read_ENC(open(file_path, 'r'))[1])
+				enc_file_list.append( (file_path, name_list) )
 			except encoding.ENCFileError, e:
 				log.debug("ENCFileError: %s" % str(e))
-	
+
 	min_diff = 256*4
 	all      = []
-	for file_path, enc_names in enc_files_list:
+	for file_path, enc_names in enc_file_list:
 		diff = len(font_names.difference(enc_names))
-		all  = (file_path, diff)
+		all.append( (file_path, diff) )
 		if diff < min_diff:
 			min_diff = diff
-	
+
 	# return best matching
-	return [v for v in all if v[1] == mindiff]
+	return [v for v in all if v[1] == min_diff]
 
 
-def get_encoding(fontname, checktfm=False, checkafm=False, grepmap=True):
-	"""
-	Function (tries to) determine encoding of given font.
-
-	Does following steps:
-	- first checks a cache (loaded from setup.font_lookup)
-	- if grepmap==True grep for all map files and find if fontname.(pfa|pfb)
-	  is mapped
-	- if checktfm==True seeks for corresponding TFM file and reads encoding name
-	- if checkafm==True seeks for corresponding AFM file and reads encoding name
-	"""
-	
-	if grepmap:
-	
-	if checktfm:
-		res = get_encoding_from_TFM(fontname)
-		if res:
-			return res
-	
-	if checkafm:
-		res = get_encoding_from_TFM(fontname)
-		if res:
-			return res
-	
-
-	# encoding not resolved
-	return (False, None)
-		
-		
 def get_designsize(fontname):
 	global tex_map_file_list
 	"""
@@ -379,7 +406,7 @@ def get_designsize(fontname):
 
 	# read TFM, if any
 	log.debug('Checking TFM file...')
-	filename = findfile.locate(fontname + '.tfm')
+	filename = findfile.locate(fontname + '.tfm', setup.tex_paths)
 	if filename:
 		log.debug("Using file '%s'" % filename)
 		file = binfile(filename, 'rb')
@@ -393,10 +420,10 @@ def get_designsize(fontname):
 	else:
 		log.warning("No TFM file found, default value 10.0 have been assumed")
 		return 10.0
-	
+
 re_number	= re.compile('(\d+)')
 re_mapping	= re.compile("^([0-9a-fA-F]{4}) N (.+)")
-	
+
 class Font:
 	pass
 
@@ -410,36 +437,29 @@ def make_cache_file(fontname):
 
 	font = Font()
 	font.name = fontname
-	
-	# locate SVG
-	filename = findfile.findfile(fontname + '.svg', setup.svg_font_path, ignorecase=True)
+
+	#
+	# 1. Locate SVG font
+	#
+
+	svgname = fontname.lower() + '.svg'
+	def svgpred(path, filename):
+		return filename.lower() == svgname
+
+	filename = findfile.find_file(setup.svg_font_path, svgpred)
 	if filename:
 		log.debug("Using SVG font '%s' as '%s'", filename, font.name)
 	else:
 		raise FontError("Can't find SVG font for '%s'" % font.name)
-	
-	# get designsize & encoding
+
+	# get designsize
 	font.designsize = get_designsize(fontname)
 	log.debug("Font '%s' designed at %spt" % (fontname, str(font.designsize)))
-	newfile, font.encoding = get_encoding(fontname)
-	if font.encoding == None:
-		raise FontError("Can't determine encoding for font '%s'", font.name)
-	else:
-		log.debug("Font '%s' encoding is %s", font.name, font.encoding)
-	
-	if newfile:
-		log.debug("Adding information about new font to '%s': %s@%fpt, enc. %s" % (
-			setup.font_lookup,
-			font.name,
-			font.designsize,
-			font.encoding)
-		)
-		file = open(setup.font_lookup, 'a')
-		file.write("%s\t\t%s\t\t%s\n" % (font.name, font.encoding, str(font.designsize)))
-		file.close()
-	
+
+	#
 	# 2. Process SVG file
-	
+	#
+
 	# a. load file
 	from xml.dom.minidom import parse
 	data = parse(filename)
@@ -448,20 +468,19 @@ def make_cache_file(fontname):
 	try:
 		fontnode = data.getElementsByTagName('font')[0]
 		# get default horizontal advance (if any)
-		if fontnode.hasAttribute('horiz-adv-x'): 
+		if fontnode.hasAttribute('horiz-adv-x'):
 			default_hadvx = float(fontnode.getAttribute('horiz-adv-x'))
 		else:
 			default_hadvx = None
 	except IndexError:
 		raise FontError("There should be at least one <font> element in SVG file")
-		
+
 	# d. get font face name
 	if fontnode.getAttribute('font-family'):
 		font.fontfamily = fontnode.getAttribute('font-family')
 	else:
 		font.fontfamily = fontname
 
-	
 	# e. load fonts
 	font.glyphs_dict = {}
 	for node in fontnode.getElementsByTagName('glyph'):
@@ -478,9 +497,9 @@ def make_cache_file(fontname):
 				pass
 			elif len(path_elements) == 1:	# one path element
 				glyph.path = path_elements[0].getAttribute('d')
-			else: # more paths
+			else: # more paths...
 				pass # XXX: join them?
-		
+
 		# 2. get character name
 		glyph.name = node.getAttribute('glyph-name')
 		if glyph.name == '':
@@ -502,12 +521,30 @@ def make_cache_file(fontname):
 			font.glyphs_dict[glyph.name] = glyph
 	#rof
 
-	# e. write the cache file
+
+	'''
+	if newfile:
+		log.debug("Adding information about new font to '%s': %s@%fpt, enc. %s" % (
+			setup.font_lookup,
+			font.name,
+			font.designsize,
+			font.encoding)
+		)
+		file = open(setup.font_lookup, 'a')
+		file.write("%s\t\t%s\t\t%s\n" % (font.name, font.encoding, str(font.designsize)))
+		file.close()
+	'''
+
+	# f. write the cache file
 	cPickle.dump(font, open(setup.cache_path + fontname + '.cache', 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
 
 def is_font_supported(fontname):
-	return findfile.findfile(fontname + ".svg", setup.svg_font_path, ignorecase=True) != None
-	
+	svgname = fontname.lower() + '.svg'
+	def svgpred(path, filename):
+		return filename.lower() == svgname
+
+	return findfile.find_file(setup.svg_font_path, svgpred) != None
+
 def unavailable_fonts(fontslist):
 	return [fontname for fontname in fontslist if not is_font_supported(fontname)]
 
