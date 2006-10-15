@@ -1,8 +1,8 @@
 # pydvi2svg
 # -*- coding: iso-8859-2 -*-
 #
-# Reading TFM & AFM files
-# $Id: metrics.py,v 1.3 2006-10-08 21:27:23 wojtek Exp $
+# Reading TFM, MAP & AFM files
+# $Id: metrics.py,v 1.4 2006-10-15 16:16:54 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,6 +10,8 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
+ 14.10.2006
+ 	- fixed bug in read_MAP
   5.10.2006
 	- added AFMError exception
 	- read_MAP (not releated, but goes here)
@@ -25,7 +27,6 @@ class AFMError(Exception):
 
 import re
 
-# C 35 ; WX 811 ; N numbersign ; B 32 0 779 700 ;
 afm_char_metrics = re.compile("^C (\d+) ; WX (\d+) ; N (.+) ; B")
 def read_AFM(file):
 	encodingname = None
@@ -122,7 +123,8 @@ def read_MAP(filename, fontname):
 	file = open(filename, 'r')
 
 	pfa = "<%s.pfa" % fontname
-	pfb = "<%s.pfa" % fontname
+	pfb = "<%s.pfb" % fontname
+	enc = None
 	for line in file:
 		# skip empty or commented lines
 		line = line.strip()
