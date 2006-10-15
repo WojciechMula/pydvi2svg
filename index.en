@@ -111,6 +111,9 @@ Program options
 	
 	(By default all pages are converted).
 
+``--enc-method`` [list] **(new)**
+	**TODO**
+
 ``--enc`` [list]
 	Override (or set) encoding of selected fonts.  Elements are
 	separated with colons, and has format ``font name``:``encoding name``.

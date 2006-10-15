@@ -109,6 +109,31 @@ Opcje programu
 	
 	(Domy¶lnie konwertowane s± wszystkie strony).
 
+``--enc-method`` [lista] **(nowe)**
+	Lista nazw oddzielonych przecinkami.
+
+	Okre¶la metody wyznaczania kodowania dla fontów oraz kolejno¶æ 
+	w jakiej zostan± wykonane:
+
+	* ``cache`` (lub ``c``) --- kodowanie jest pobierane z pliku
+	  ``enc/font.info`` (lub z linii poleceñ, je¶li zastosowano
+	  opisan± ni¿ej opcjê ``--enc``)
+	* ``TFM`` (lub ``t``) --- kodowanie jest odczytywane z pliku TFM
+	* ``AFM`` (lub ``a``) --- kodowanie jest odczytywane z pliku AFM
+	* ``MAP`` (lub ``m``) --- metoda do¶æ powolna, powinna byæ stosowana
+	  gdy fonty SVG zosta³y skonwertowane z formatu Type1: skanuje
+	  wszystkie pliki map i próbuje znale¼æ w jaki sposób mapuj± ten
+	  font inne programy (np. ``dvips``)
+	* ``guess`` (lub ``g``) --- ,,dochochodzimy do wyniku
+	  najszlachetniejsz± metod± znan± matematyce --- zgadujemy''; a na
+	  powa¿nie: wyszukiwane jest takie kodowanie, które pokrywa jak
+	  najwiêksz± liczbê znaków dostêpnych w foncie SVG.  Mo¿e zdarzyæ
+	  siê tak, ¿e zostanie znalezione wiêcej plików kodowañ i wówczas
+	  program koñczy siê --- wówczas nale¿y wypróbowaæ podane kodowania
+	  (opcja ``--enc``).
+
+	Domy¶lnie: cache,tfm
+
 ``--enc`` [lista]
 	Nadpisanie u¿ywanych przez ``pydvi2svg`` kodowañ dla okre¶lonych
 	fontów.  Elementy listy s± oddzielone przecinkami, a ka¿dy ma format
