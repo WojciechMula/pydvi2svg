@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Encoding and ENC file support
-# $Id: encoding.py,v 1.5 2006-10-14 21:26:36 wojtek Exp $
+# $Id: encoding.py,v 1.6 2006-10-15 16:14:05 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,6 +10,10 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
+ 15.10.2006
+ 	- EncodingDB.load_encoding -- now try to open file, 
+	  then locate file in filesystem
+	- bug fixed in read_ENC
   4.10.2006
 	- ENCFileError, EncodingDB
   3.10.2006
@@ -18,6 +22,7 @@ __changelog__ = '''
 
 import os
 import findfile
+import setup
 
 class EncodingDBError(Exception):
 	pass
@@ -63,20 +68,32 @@ class EncodingDB:
 	def load_encoding(self, encodingname):
 		"""Loads encoding"""
 
+		# is encoding file?
+		if os.path.isfile(encodingname):
+			fullpath   = encodingname
+			path, file = os.path.split(fullpath)
+			if file[-4:] == '.enc':
+				encodingname = file[:-4]
+			else:
+				encodingname = file
+
+			self.loaded_enc[encodingname] = read_ENC( open(fullpath, 'r') )[1]
+			return self.loaded_enc[encodingname]
+
 		# try to load encoding from our base directory
 		filename = os.path.join(self.search_path, encodingname + ".enc")
 		if os.path.exists(filename):
 			self.loaded_enc[encodingname] = read_ENC( open(filename, 'r') )[1]
 			return self.loaded_enc[encodingname]
 		
-		# locate encoding in the user filestystem
-		filename = findfile.locate(encodingname + ".enc")
+		# locate encoding in the user filesystem
+		filename = findfile.locate(encodingname + ".enc", setup.tex_paths)
 		if filename:
 			self.loaded_enc[encodingname] = read_ENC( open(filename, 'r') )[1]
 			return self.loaded_enc[encodingname]
-		else:
-			raise EncodingDBError("Can not find '%s.enc' file." % encodingname)
-
+		
+		
+		raise EncodingDBError("Can not find '%s' file." % encodingname)
 
 
 class ENCFileError(Exception):
@@ -122,7 +139,7 @@ def read_ENC(file):
 	# check if string ends with string 'def'
 	defstr = tmp[cbp+1:].strip()
 	if defstr != 'def':
-		raise ENCFileError("List of must end with string 'def', but is '%s'" % defstr, file.name)
+		raise ENCFileError("List of names must end with string 'def', but is '%s'" % defstr, file.name)
 
 	# get characters
 	name_list = tmp[obp+1:cbp].split()
@@ -132,7 +149,7 @@ def read_ENC(file):
 	# check their names & fill lookup table
 	def get_charname(charname):
 		if not (charname[0] == '/'):
-			raise ENCFileError("Invalid character name '%s' - it have to start with '/'")
+			raise ENCFileError("Invalid character name '%s' - it have to start with '/'" % charname)
 		if charname == '/.notdef':
 			return None
 		else:
