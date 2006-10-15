@@ -2,14 +2,18 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Main program
-# $Id: dvi2svg.py,v 1.9 2006-10-14 21:25:08 wojtek Exp $
+# $Id: dvi2svg.py,v 1.10 2006-10-15 16:11:47 wojtek Exp $
 # 
 # license: BSD
 #
 # author: Wojciech Muła
 # e-mail: wojciech_mula@poczta.onet.pl
 
-'''
+__changelog__ = '''
+15.10.2006
+	- added --enc-methods switch
+	- moved parse_enc_repl & parse_pagedef to utils.py
+	- replaced function open_dvi with findfile.find_file call
 14.10.2006
 	- small fixes
 13.10.2006
@@ -71,14 +75,17 @@ import os
 import xml.dom
 import logging
 
+from sets import Set
+
 import dviparser
 import fontsel
+import findfile
+import utils
 
 from binfile import binfile
-from sets import Set
 from colors  import is_colorspecial, execute
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('dvi2svg')
 
 class SVGGfxDocument:
@@ -397,17 +404,6 @@ def convert_page(dvi, document):
 			raise NotImplementedError("Command '%s' not implemented." % command)
 
 
-def open_dvi(filename, mode, default_extension=None):
-	try:
-		dvi = binfile(filename, mode)
-	except IOError, e:
-		if default_extension:
-			dvi = binfile(filename + default_extension, mode)
-		else:
-			raise e
-	
-	return dvi
-
 def get_basename(filename):
 	dotpos = filename.rfind('.')
 	if dotpos > -1:
@@ -415,79 +411,6 @@ def get_basename(filename):
 	else:
 		return filename
 
-
-def parse_pagedef(string, min, max):
-	"""
-	Parse page numbers. Examples:
-		1,2,5,10	- selected single pages
-		2-5		- range (2,5)
-		-10		- range (min,10)
-		15-		- range (15,max)
-
-	>>> parse_pagedef("1,2,3,4,5", 1, 10)
-	[1, 2, 3, 4, 5]
-	>>> parse_pagedef("1,-5,2-7",  1, 10)
-	[1, 2, 3, 4, 5, 6, 7]
-	>>> parse_pagedef("1,5-,3-,2", 1, 10)
-	[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-	"""
-	assert min <= max
-	def touint(string):
-		try:
-			x = int(string)
-		except ValueError:
-			raise ValueError("Number expeced, got %s" % string)
-
-		if   x < min:
-			raise ValueError("Number %d less then %d" % (x, min))
-		elif x > max:
-			raise ValueError("Number %d greater then %d" % (x, max))
-		else:
-			return x
-
-	result = []
-	for item in string.split(','):
-		tmp = item.split('-')
-		if   len(tmp) == 1:	# single page (number)
-			result.append(touint(tmp[0]))
-		elif len(tmp) == 2:	
-			# open range (number-)
-			if   tmp[0] == '':
-				a = min
-				b = touint(tmp[1])
-
-			# open range (number-)
-			elif tmp[1] == '':
-				a = touint(tmp[0])
-				b = max
-
-			# range (number-number)
-			else:              
-				a = touint(tmp[0])
-				b = touint(tmp[1])
-
-			result.extend( range(a,b+1) )
-		else:
-			raise ValueError("Wrong syntax: %s" % item)
-	#rof
-	return list(Set(result))
-
-
-def parse_enc_repl(string):
-	# format:
-	#  fontname:enc,fontname:enc,fontname=enc
-
-	string = string.replace(':', '=')
-	dict   = {}
-	for item in string.split(','):
-		try:
-			fontname, enc = item.split('=')
-			dict[fontname] = enc
-		except ValueError:
-			pass
-	
-	return dict
-	
 
 if __name__ == '__main__':
 	import optparse
@@ -523,14 +446,20 @@ if __name__ == '__main__':
 	                  action="store_true",
 	                  dest="generate_text",
 					  default=False)
+	
+	parser.add_option("--enc-methods",
+	                  dest="enc_methods",
+					  default="c,t,a")
 
 	(options, args) = parser.parse_args()
 	if not args:
 		log.info("Nothing to do.")
 		sys.exit()
+	
+	options.enc_methods = utils.parse_enc_methods(options.enc_methods)
 
 	if options.enc_repl:
-		fontsel.preload(parse_enc_repl(options.enc_repl))
+		fontsel.preload(utils.parse_enc_repl(options.enc_repl))
 	else:
 		fontsel.preload()
 
@@ -548,7 +477,15 @@ if __name__ == '__main__':
 		#
 		# 1. Open file
 		#
-		dvi = open_dvi(filename, 'rb', '.dvi')
+		dir, filename  = os.path.split(filename)
+		def dvipred(p, f):
+			return f==filename or \
+			       f==filename + '.dvi' or \
+			       f==filename + '.DVI' or \
+			       f==filename + '.Dvi'
+
+		filename       = findfile.find_file(dir, dvipred)
+		dvi            = binfile(filename, 'rb')
 		log.info("Processing '%s' file", dvi.name) 
 
 		#
@@ -569,7 +506,7 @@ if __name__ == '__main__':
 
 		# check if we support all fonts
 		missing = fontsel.unavailable_fonts( (val[3] for val in fonts.itervalues()) )
-		if missing:	# there are some unknown
+		if missing:	# error, there are some unknown
 			log.error("Following fonts aren't available:")
 			log.error('\n'.join(missing))
 			log.info("Skipping file '%s'" % dvi.name)
@@ -578,7 +515,7 @@ if __name__ == '__main__':
 		else:		# ok, preload
 			for k in fonts:
 				_, s, d, fontname = fonts[k]
-				fontsel.create_DVI_font(fontname, k, s, d)
+				fontsel.create_DVI_font(fontname, k, s, d, options.enc_methods)
 
 		#
 		# 4. process pages
@@ -587,7 +524,7 @@ if __name__ == '__main__':
 			pages = range(0, n)
 		else:				# processing selected pages
 			try:
-				tmp   = parse_pagedef(options.pages, 1, n)
+				tmp   = utils.parse_pagedef(options.pages, 1, n)
 				pages = [p-1 for p in tmp]
 			except ValueError, e:
 				log.warning("Argument of --pages switch has invalid syntax ('%s'), processing first page", options.pages)
