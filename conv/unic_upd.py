@@ -4,7 +4,7 @@ import findfile
 import xml.dom.minidom as dom
 
 d = {}
-for filename in findfile.find_all('fonts', 'svg'):
+for filename in findfile.find_all_files('fonts', lambda p,f: f.endswith('.svg')):
 	print "Processing", filename
 
 	doc = dom.parse(filename)
