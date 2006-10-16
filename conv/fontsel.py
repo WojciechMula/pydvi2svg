@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.11 2006-10-16 11:41:35 wojtek Exp $
+# $Id: fontsel.py,v 1.12 2006-10-16 16:03:57 wojtek Exp $
 #
 # license: BSD
 #
@@ -11,8 +11,9 @@
 
 __changelog__ = '''
 16.10.2006
-	- added functions load_metadata & parse_metadata
 	- removed is_font_supported, unavailable_fonts
+	- use FontForge to convert (added fontforge_convert)
+	- use own utility fnt2meta (aded load_metadata & parse_metadata)
 15.10.2006
 	- removed get_encoding
 	- encoding is now determined inside function create_DVI_font
@@ -57,6 +58,7 @@ from sets import Set
 import setup
 import findfile
 import encoding
+import utils
 
 from binfile  import binfile
 from metrics  import read_TFM, TFMError, read_AFM, AFMError, read_MAP
@@ -111,6 +113,7 @@ def create_DVI_font(fontname, k, s, d, findenc):
 
 
 	enc = None
+	new = False
 	for method in findenc:
 		if method == 'c':	# load from cache
 			try:
@@ -126,6 +129,7 @@ def create_DVI_font(fontname, k, s, d, findenc):
 				enc = get_encoding_from_TFM(fontname)
 				if enc:
 					log.debug("%s: font encoding is %s (TFM)", fontname, enc)
+					new = True
 					break
 			except TFMError, e:
 				log.debug("TFMError: %s", str(e))
@@ -135,6 +139,7 @@ def create_DVI_font(fontname, k, s, d, findenc):
 				enc = get_encoding_from_AFM(fontname)
 				if enc:
 					log.debug("%s: font encoding is %s (AFM)", fontname, enc)
+					new = True
 					break
 			except AFMError, e:
 				log.debug("AFMError: %s", str(e))
@@ -143,6 +148,7 @@ def create_DVI_font(fontname, k, s, d, findenc):
 			enc = get_encoding_from_MAPfiles(fontname)
 			if enc:
 				log.debug("%s: font encoding is %s (MAP)", fontname, enc)
+				new = True
 				break
 
 		elif method == 'g':	# compare with all ENC files
@@ -152,6 +158,7 @@ def create_DVI_font(fontname, k, s, d, findenc):
 			if enc_list:
 				if len(enc_list) == 1:	# ok(?), one enc file
 					enc = enc_list[0][0]
+					new = True
 					log.debug("%s: font encoding is %s (ENC)", fontname, enc)
 				else:
 					tmp = ', '.join([v[0] for v in enc_list])
@@ -161,6 +168,17 @@ def create_DVI_font(fontname, k, s, d, findenc):
 	
 	if not enc:
 		raise FontError("Can't determine encoding of font '%s'.  Provide this information with --enc switch." % fontname)
+	
+	if 'c' not in findenc and new:
+		log.debug("Adding information about new font to '%s': %s@%fpt, enc. %s" % (
+			setup.font_lookup,
+			font.name,
+			font.designsize,
+			font.encoding)
+		)
+		file = open(setup.font_lookup, 'a')
+		file.write("%s\t\t%s\t\t%s\n" % (font.name, font.encoding, str(font.designsize)))
+		file.close()
 	
 	
 	font.encoding = encodingDB.getencodingtbl(enc)
@@ -213,7 +231,7 @@ def load_font(fontname):
 	except KeyError:
 		filename = os.path.join(setup.cache_path + fontname.lower() + '.cache')
 		if not os.path.exists(filename):
-			log.debug("Cache file for '%s' font does not exists -- creating it" % fontname)
+			log.debug("Cache file for '%s' font does not exists -- creating one" % fontname)
 			make_cache_file(fontname)
 			config.fonts[fontname] = font = cPickle.load(open(filename, 'rb'))
 		else:
@@ -440,7 +458,7 @@ def make_cache_file(fontname):
 	font.name = fontname
 
 	#
-	# 1. Locate SVG font
+	# 1. Locate/create SVG font
 	#
 
 	svgname = fontname.lower() + '.svg'
@@ -448,28 +466,42 @@ def make_cache_file(fontname):
 		return filename.lower() == svgname
 
 	filename = findfile.find_file(setup.svg_font_path, svgpred)
+	if not filename:
+		type1file = findfile.locate(fontname + '.pfb') or \
+		            findfile.locate(fontname + '.pfa')
+
+		if type1file:
+			log.info("Found Type1 font: %s" % type1file)
+			log.info("... trying FontForge")
+			if fontforge_convert(type1file):
+				filename = findfile.find_file(setup.svg_font_path, svgpred)
+				log.info("... ... conversion successful!")
+			else:
+				log.info("... ... conversion failed")
+				log.info("... trying fnt2meta")
+				meta = load_metadata(type1file)
+				if meta:
+					font = parse_metadata(meta)
+					font.designsize = get_designsize(fontname)
+					log.debug("Font '%s' designed at %spt" % (fontname, str(font.designsize)))
+					log.info("... conversion successful")
+				
+					# pickle
+					f = open(setup.cache_path + fontname + '.cache', 'wb')
+					cPickle.dump(font, f, protocol=cPickle.HIGHEST_PROTOCOL)
+					f.close()
+					return
+				else:
+					log.info("... conversion failed")
+		#fi
+
 	if filename:
 		log.debug("Using SVG font '%s' as '%s'", filename, font.name)
 	else:
-		filename = findfile.locate(fontname + '.pfb') or \
-		           findfile.locate(fontname + '.pfa')
-		if filename:
-			log.info("Found Type1 font: %s" % filename)
-			meta = load_metadata(filename)
-			if meta:
-				font = parse_metadata(meta)
-				font.designsize = get_designsize(fontname)
-				log.debug("Font '%s' designed at %spt" % (fontname, str(font.designsize)))
-				
-				# pickle
-				f = open(setup.cache_path + fontname + '.cache', 'wb')
-				cPickle.dump(font, f, protocol=cPickle.HIGHEST_PROTOCOL)
-				f.close()
-				return
-			else:
-				raise FontError("Suitable Type1 font found, but conversion failed.")
+		if type1file:
+			raise FontError("%s: suitable vector font found, but conversion failed (are FontForge or/and fnt2meta installed?)" % font.name)
 		else:
-			raise FontError("Can't find SVG font for '%s'" % font.name)
+			raise FontError("%s: can't find SVG font" % font.name)
 
 	# get designsize
 	font.designsize = get_designsize(fontname)
@@ -542,20 +574,11 @@ def make_cache_file(fontname):
 
 
 	'''
-	if newfile:
-		log.debug("Adding information about new font to '%s': %s@%fpt, enc. %s" % (
-			setup.font_lookup,
-			font.name,
-			font.designsize,
-			font.encoding)
-		)
-		file = open(setup.font_lookup, 'a')
-		file.write("%s\t\t%s\t\t%s\n" % (font.name, font.encoding, str(font.designsize)))
-		file.close()
 	'''
 
 	# f. write the cache file
 	cPickle.dump(font, open(setup.cache_path + fontname + '.cache', 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
+
 
 
 fnt2meta_available = True
@@ -653,5 +676,24 @@ def parse_metadata(text):
 			cpx, cpy = cp4x, cp4y
 
 	return font
+
+
+fontforge_available = True
+def fontforge_convert(fullpath):
+	global fontforge_available
+	if not fontforge_available:
+		return False
+
+	path, file = os.path.split(fullpath)
+	target     = os.path.join(setup.svg_font_path, utils.basename(file)+'.svg')
+	cmd = "fontforge -c 'Open($1); Generate($2)' %s %s" % (fullpath, target)
+	exitstatus = os.system(cmd)
+	if exitstatus:
+		if exitstatus >> 8 == 127:
+			fontforge_available = False
+		return False
+	else:
+		return True
+
 
 # vim: ts=4 sw=4 noexpandtab nowrap
