@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Main program
-# $Id: dvi2svg.py,v 1.11 2006-10-16 11:40:55 wojtek Exp $
+# $Id: dvi2svg.py,v 1.12 2006-10-16 16:03:00 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,6 +10,8 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
+16.10.2006
+	- moved get_basename to utils.py
 15.10.2006
 	- added --enc-methods switch
 	- moved parse_enc_repl & parse_pagedef to utils.py
@@ -404,14 +406,6 @@ def convert_page(dvi, document):
 			raise NotImplementedError("Command '%s' not implemented." % command)
 
 
-def get_basename(filename):
-	dotpos = filename.rfind('.')
-	if dotpos > -1:
-		return filename[:dotpos]
-	else:
-		return filename
-
-
 if __name__ == '__main__':
 	import optparse
 	
@@ -531,7 +525,7 @@ if __name__ == '__main__':
 				pages = [0]
 
 		# ok, write the file
-		basename = os.path.split(get_basename(dvi.name))[1]
+		basename = os.path.split(utils.get_basename(dvi.name))[1]
 
 			
 		scale = unit_mm * 72.27/25.4
