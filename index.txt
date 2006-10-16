@@ -10,13 +10,14 @@ News
 ------------------------------------------------------------------------
 
 16.10.2006
-	I wrote a small utility `fnt2meta.c`__ that reads font file and
-	prints glyph outlines (need FreeType2_). Moreover ``pydvi2svg`` is
-	able to use program, so if your TeX installation contains a font
-	saved in Type1 format (``pfa`` or ``pfb``) then ``pydvi2svg`` load
-	it **automatically**.  Works really nice.
 
-	Compilation::
+	If ``pydvi2svg`` is can't find SVG found but Type1 fonts
+	(``pfa`` or ``pfb``) are available your TeX installation
+	then **automatically** use FontForge (or fnt2meta) to
+	converts such font.
+	
+	`fnt2meta.c`__ is a small utility that reads font file and
+	prints glyph outlines (need FreeType2_).  Compilation::
 
 		gcc -O2 -lfreetype fnt2meta.c -o fnt2meta
 	
