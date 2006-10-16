@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Main program
-# $Id: dvi2svg.py,v 1.10 2006-10-15 16:11:47 wojtek Exp $
+# $Id: dvi2svg.py,v 1.11 2006-10-16 11:40:55 wojtek Exp $
 # 
 # license: BSD
 #
@@ -504,18 +504,18 @@ if __name__ == '__main__':
 		# 3. Preload fonts
 		#
 
-		# check if we support all fonts
-		missing = fontsel.unavailable_fonts( (val[3] for val in fonts.itervalues()) )
-		if missing:	# error, there are some unknown
-			log.error("Following fonts aren't available:")
-			log.error('\n'.join(missing))
-			log.info("Skipping file '%s'" % dvi.name)
-			continue
-
-		else:		# ok, preload
-			for k in fonts:
-				_, s, d, fontname = fonts[k]
+		missing = False
+		for k in fonts:
+			_, s, d, fontname = fonts[k]
+			try:
 				fontsel.create_DVI_font(fontname, k, s, d, options.enc_methods)
+			except fontsel.FontError, e:
+				log.error("Can't find font '%s': %s" % (fontname, str(e)))
+				missing = True
+
+		if missing:
+			log.info("There were some unavailable fonts, skipping file '%s'" % dvi.name)
+			continue
 
 		#
 		# 4. process pages
