@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Some utils
-# $Id: utils.py,v 1.2 2006-10-15 16:17:59 wojtek Exp $
+# $Id: utils.py,v 1.3 2006-10-16 16:03:24 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,6 +10,8 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
+16.10.2006
+	- get_basename moved from dvi2svg
 15.10.2006
 	- funtions parse_pagedef, parse_enc_repl moved from dvi2svg.py
 	- added parse_enc_methods
@@ -141,5 +143,14 @@ def parse_enc_methods(list):
 	
 	return commands
 
+
+def get_basename(filename):
+	dotpos = filename.rfind('.')
+	if dotpos > -1:
+		return filename[:dotpos]
+	else:
+		return filename
+
+basename = get_basename
 
 # vim: ts=4 sw=4
