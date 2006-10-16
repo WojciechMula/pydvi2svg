@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.10 2006-10-15 16:16:28 wojtek Exp $
+# $Id: fontsel.py,v 1.11 2006-10-16 11:41:35 wojtek Exp $
 #
 # license: BSD
 #
@@ -10,9 +10,12 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
+16.10.2006
+	- added functions load_metadata & parse_metadata
+	- removed is_font_supported, unavailable_fonts
 15.10.2006
 	- removed get_encoding
-	- encoding is now detrmined inside function create_DVI_font
+	- encoding is now determined inside function create_DVI_font
 14.10.2006
 	- guess_encoding
 	- split get_encoding: get_encoding_from_TFM, get_encoding_from_AFM,
@@ -391,13 +394,11 @@ def guess_encoding(font_names):
 
 
 def get_designsize(fontname):
-	global tex_map_file_list
 	"""
 	Function (tries to) determine designsize of given font.
 
-	Does following steps:
-	- first checks a cache (loaded from setup.font_lookup)
-	- if checktfm==True seeks for corresponding TFM file and reads designsize
+	First checks a cache (loaded from setup.font_lookup),
+	then seeks for corresponding TFM file and reads designsize.
 	"""
 	if fontname in config.fonts_lookup:
 		encoding, designsize = config.fonts_lookup[fontname]
@@ -450,7 +451,25 @@ def make_cache_file(fontname):
 	if filename:
 		log.debug("Using SVG font '%s' as '%s'", filename, font.name)
 	else:
-		raise FontError("Can't find SVG font for '%s'" % font.name)
+		filename = findfile.locate(fontname + '.pfb') or \
+		           findfile.locate(fontname + '.pfa')
+		if filename:
+			log.info("Found Type1 font: %s" % filename)
+			meta = load_metadata(filename)
+			if meta:
+				font = parse_metadata(meta)
+				font.designsize = get_designsize(fontname)
+				log.debug("Font '%s' designed at %spt" % (fontname, str(font.designsize)))
+				
+				# pickle
+				f = open(setup.cache_path + fontname + '.cache', 'wb')
+				cPickle.dump(font, f, protocol=cPickle.HIGHEST_PROTOCOL)
+				f.close()
+				return
+			else:
+				raise FontError("Suitable Type1 font found, but conversion failed.")
+		else:
+			raise FontError("Can't find SVG font for '%s'" % font.name)
 
 	# get designsize
 	font.designsize = get_designsize(fontname)
@@ -538,14 +557,101 @@ def make_cache_file(fontname):
 	# f. write the cache file
 	cPickle.dump(font, open(setup.cache_path + fontname + '.cache', 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
 
-def is_font_supported(fontname):
-	svgname = fontname.lower() + '.svg'
-	def svgpred(path, filename):
-		return filename.lower() == svgname
 
-	return findfile.find_file(setup.svg_font_path, svgpred) != None
+fnt2meta_available = True
+def load_metadata(filename):
+	global fnt2meta_available
 
-def unavailable_fonts(fontslist):
-	return [fontname for fontname in fontslist if not is_font_supported(fontname)]
+	if fnt2meta_available:
+		stdout     = os.popen('fnt2meta %s' % filename, 'r')
+		meta       = stdout.readlines()
+		exitstatus = stdout.close()
+		if exitstatus:
+			if exitstatus >> 8 == 127: fnt2meta_available = False
+			return None
+		else:
+			return meta
+	else:
+		return None
 
-# vim: ts=4 sw=4
+def parse_metadata(text):
+	font  = Font()
+	cpx   = 0
+	cpy   = 0
+	lastx = 0
+	lasty = 0
+
+	for line in text:
+		fields  = line.split()
+		command = fields[0]
+		if command == 'family':
+			font.fontfamily  = " ".join(fields[1:])
+			font.designsize  = 10.0	# XXX: caller have to determine this value
+			font.glyphs_dict = {}
+		elif command == 'char':
+			glyph = Glyph()
+
+			glyph.name = fields[1]
+			d     = []
+			lastx = 0
+			lasty = 0
+		elif command == 'adv':
+			glyph.hadv = int(fields[1])
+		elif command == 'end':
+			# skip missing glyph
+			if glyph.name != '.notdef' and d:	
+				glyph.path = ''.join(d)
+				font.glyphs_dict[glyph.name] = glyph
+
+		#
+		# path commands
+		#
+
+		# moveto
+		elif command == 'M':
+			cpx, cpy = int(fields[1]), int(fields[2])
+			lastx = cpx
+			lasty = cpy
+			d.append("M%d,%d" % (cpx, cpy))
+	
+		# lineto
+		elif command == 'L':
+			x, y = int(fields[1]), int(fields[2])
+
+			# close path
+			if x == lastx and y == lasty:
+				d.append("z")
+
+			# vert line
+			elif x == cpx: 
+				d.append("V%d" % y)
+
+			# horiz line
+			elif y == cpy:
+				d.append("H%d" % x)
+
+			else:
+				d.append("L%d,%d" % (x,y))
+				
+			cpx, cpy = x, y
+
+		# quadric_to (conic, in freetype nomenclature)
+		if command == 'Q':
+			cp2x, cp2y = int(fields[1]), int(fields[2])
+			cp3x, cp3y = int(fields[3]), int(fields[4])
+			d.append("Q%d,%d %d,%d" % (cp2x,cp2y, cp3x,cp3y))
+
+			cpx, cpy = cp3x, cp3y
+		
+		# cubic to
+		if command == 'C':
+			cp2x, cp2y = int(fields[1]), int(fields[2])
+			cp3x, cp3y = int(fields[3]), int(fields[4])
+			cp4x, cp4y = int(fields[5]), int(fields[6])
+			d.append("C%d,%d %d,%d %d,%d" % (cp2x,cp2y, cp3x,cp3y, cp4x,cp4y))
+
+			cpx, cpy = cp4x, cp4y
+
+	return font
+
+# vim: ts=4 sw=4 noexpandtab nowrap
