@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Main program
-# $Id: dvi2svg.py,v 1.12 2006-10-16 16:03:00 wojtek Exp $
+# $Id: dvi2svg.py,v 1.13 2006-10-16 20:32:47 wojtek Exp $
 # 
 # license: BSD
 #
@@ -12,6 +12,7 @@
 __changelog__ = '''
 16.10.2006
 	- moved get_basename to utils.py
+	- implementation of SVGTextDocument finished
 15.10.2006
 	- added --enc-methods switch
 	- moved parse_enc_repl & parse_pagedef to utils.py
@@ -238,7 +239,7 @@ class SVGTextDocument(SVGGfxDocument):
 		H  = self.scale * (h + self.oneinch)
 		V  = self.scale * (v + self.oneinch)
 
-		self.chars.append( (H, V, fntnum, glyphname, next) )
+		self.chars.append( (H, V, fntnum, glyphname, next, color) )
 
 		# return horizontal advance
 		return hadv
@@ -267,11 +268,12 @@ class SVGTextDocument(SVGGfxDocument):
 		# 2. process chars
 		from utils import group_elements as group
 
-		# (H, V, fntnum, glyphname, next)
+		# (H, V, fntnum, glyphname, next, color)
+	
 
 		# group chars typeseted with the same font
 		byfntnum = group(self.chars, value=lambda x: x[2])
-		for (fntnum, chars2) in byfntnum:
+		for (fntnum, char_list) in byfntnum:
 			g = new('tspan')
 			page.appendChild(g)
 
@@ -282,35 +284,67 @@ class SVGTextDocument(SVGGfxDocument):
 				style += "; font-scale: %0.1f%%" % ((100.0*s)/d)
 
 			g.setAttribute('style', style)
+				
+			def isglyphknown(glyphname):
+				try:
+					return bool(name_lookup[glyphname])
+				except KeyError:
+					return False
 
-			# then group characters
-			strings = group(chars2, value=lambda x: x[4])
-			for cont, chars3 in strings:
-				if cont: # sequence of set_char commands
-					t = new('text')
-					g.appendChild(t)
-					H = chars3[0][0]
-					V = chars3[0][0]
+			def output_char_string(list):
+				H     = list[0][0]
+				V     = list[0][1]
+				color = list[0][5]
+				text  = ''.join([name_lookup[item[3]] for item in list])
+				
+				node = new('text')
+				if color:
+					node.setAttribute('style', 'fill:%s' % color)
 
-					t.setAttribute("x", coord2str(H))
-					t.setAttribute("y", coord2str(V))
+				node.setAttribute('x', coord2str(H))
+				node.setAttribute('y', coord2str(V))
+				node.appendChild(self.document.createTextNode(text))
+				return node
+			
+			def output_char(char):
+				H     = char[0]
+				V     = char[1]
+				color = char[5]
+				text  = name_lookup[char[3]]
+				
+				node = new('text')
+				if color:
+					node.setAttribute('style', 'fill:%s' % color)
 
-					# TODO: detect unknown characters and mark them
-					# TODO: use colors!
+				node.setAttribute('x', coord2str(H))
+				node.setAttribute('y', coord2str(V))
+				node.appendChild(self.document.createTextNode(text))
+				return node
 
-					text = [name_lookup[item[3]] for item in chars3]
-					text = self.document.createTextNode(''.join(text))
-					t.appendChild(text)
+			# find unknown chars
+			for (known, char_list2) in group(char_list, lambda x: isglyphknown(x[3])):
+				if not known:
+					for char in char_list2:
+						H    = item[0]
+						V    = item[1]
+
+						node = new('text')
+						node.setAttribute('x', coord2str(H))
+						node.setAttribute('y', coord2str(V))
+						node.setAttribute('style', 'fill:red')
+						node.appendChild(self.document.createTextNode('?'))
+						g.appendChild(node)
 				else:
-					for char in chars3:
-						t = new('text')
-						g.appendChild(t)
-						H = chars3[0][0]
-						V = chars3[0][0]
+					# group set_char commands
+					for (set_char, char_list3) in group(char_list2, lambda x: x[4]):
+						if set_char:
+							for (color, char_list4) in group(char_list3, lambda x: x[5]):
+								g.appendChild(output_char_string(char_list4))
+						else:
+							for char in char_list3:
+								g.appendChild(output_char(char))
+					#rof
 
-						t.setAttribute("x", coord2str(H))
-						t.setAttribute("y", coord2str(V))
-						t.appendChild(self.document.createTextNode(char[3]))
 
 		#rof
 	
@@ -320,7 +354,7 @@ class SVGTextDocument(SVGGfxDocument):
 		
 		# save
 		f = open(filename, 'wb')
-		f.write(self.document.toprettyxml(encoding="utf-8"))
+		f.write(self.document.toxml(encoding="utf-8"))
 		f.close()
 	
 
