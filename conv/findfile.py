@@ -2,14 +2,17 @@
 # -*- coding: iso-8859-2 -*-
 #
 # File searching functions
-# $Id: findfile.py,v 1.2 2006-10-15 16:15:28 wojtek Exp $
+# $Id: findfile.py,v 1.3 2006-11-13 19:12:48 wojtek Exp $
 # 
 # license: BSD
 #
 # author: Wojciech Muła
 # e-mail: wojciech_mula@poczta.onet.pl
 
-__change__ = '''
+# Changelog
+'''
+13.11.2006
+	- +which
 16.10.2006
 	- generalized find_file & find_all_files (removed find_all, findfile)
 	- upated kpsewhich
@@ -116,5 +119,16 @@ def kpsewhich(filename):
 def locate(filename, search_paths=[]):
 	return kpsewhich(filename) or \
 	       find_file(search_paths, pred=lambda p, f: f==filename)
+
+try:
+	dirs = os.environ['PATH'].split(':')
+except KeyError:
+	dirs = []
+
+def which(name):
+	for path in dirs:
+		fullpath = os.path.join(path, name)
+		if os.path.isfile(fullpath):
+			return fullpath
 	
 # vim: ts=4 sw=4

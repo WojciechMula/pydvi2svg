@@ -2,18 +2,21 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.12 2006-10-16 16:03:57 wojtek Exp $
+# $Id: fontsel.py,v 1.13 2006-11-13 19:12:48 wojtek Exp $
 #
 # license: BSD
 #
 # author: Wojciech Muła
 # e-mail: wojciech_mula@poczta.onet.pl
 
-__changelog__ = '''
+# Changelog
+'''
+13.11.2006
+	- use findfile.which to detect Fontforge/fnt2meta
 16.10.2006
 	- removed is_font_supported, unavailable_fonts
 	- use FontForge to convert (added fontforge_convert)
-	- use own utility fnt2meta (aded load_metadata & parse_metadata)
+	- use own utility fnt2meta (added load_metadata & parse_metadata)
 15.10.2006
 	- removed get_encoding
 	- encoding is now determined inside function create_DVI_font
@@ -208,7 +211,22 @@ def get_char(fontnum, dvicode):
 		log.error("%s: missing char '%s'" % (font.name, glyphname))
 		raise e
 
+fnt2meta_available  = True
+fontforge_available = True
 def preload(enc_repl={}):
+	global fontforge_available
+	global fnt2meta_available
+
+	fontforge_available = findfile.which('fontforge') != None
+	fnt2meta_available  = findfile.which('fnt2meta') != None
+
+	def yesno(val):
+		if val: return 'yes'
+		else:   return 'no'
+
+	log.debug('Fontforge available: %s', yesno(fontforge_available))
+	log.debug('fnt2meta available: %s', yesno(fontforge_available))
+
 	log.debug("Loading encoding names lookup from '%s'" % setup.enc_lookup)
 	load_enc_lookup()
 
@@ -491,8 +509,6 @@ def make_cache_file(fontname):
 					cPickle.dump(font, f, protocol=cPickle.HIGHEST_PROTOCOL)
 					f.close()
 					return
-				else:
-					log.info("... conversion failed")
 		#fi
 
 	if filename:
@@ -541,8 +557,8 @@ def make_cache_file(fontname):
 		if node.hasAttribute('d'):	# is defined as <glyph> attribute
 			glyph.path = node.getAttribute('d')
 		else:
-			# XXX: glyph is defined using childNodes and I assume
-			#      there is just one path element
+			# XXX: glyph is defined with path child element and I assume
+			#      there is just one element
 			path_elements = node.getElementsByTagName('path')
 			if len(path_elements) == 0:		# no path elements at all
 				pass
@@ -571,10 +587,6 @@ def make_cache_file(fontname):
 		else:
 			font.glyphs_dict[glyph.name] = glyph
 	#rof
-
-
-	'''
-	'''
 
 	# f. write the cache file
 	cPickle.dump(font, open(setup.cache_path + fontname + '.cache', 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
@@ -678,7 +690,6 @@ def parse_metadata(text):
 	return font
 
 
-fontforge_available = True
 def fontforge_convert(fullpath):
 	global fontforge_available
 	if not fontforge_available:
