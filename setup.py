@@ -1,7 +1,14 @@
-encoding_path	= 'enc/'
+from os.path import dirname, join
+
+def path(p):
+	return join(dirname(__file__), p)
+	
+encoding_path	= path('enc/')
 tex_paths	= ['/usr/share/texmf/', '/usr/share/texmf-tetex']
 
-svg_font_path	= 'fonts/'
-cache_path	= 'cache/'
-font_lookup	= 'enc/font.info'
-enc_lookup	= 'enc/enc.info'
+svg_font_path	= path('fonts/')
+cache_path	= path('cache/')
+font_lookup	= path('enc/font.info')
+enc_lookup	= path('enc/enc.info')
+
+del path 
