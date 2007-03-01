@@ -1,8 +1,10 @@
-# pydvi2svg
+#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
 #
+# pydvi2svg
+#
 # Main program
-# $Id: dvi2svg.py,v 1.13 2006-10-16 20:32:47 wojtek Exp $
+# $Id: dvi2svg.py,v 1.14 2007-03-01 14:12:03 wojtek Exp $
 # 
 # license: BSD
 #
@@ -506,6 +508,7 @@ if __name__ == '__main__':
 		# 1. Open file
 		#
 		dir, filename  = os.path.split(filename)
+		if dir == '': dir = '.'
 		def dvipred(p, f):
 			return f==filename or \
 			       f==filename + '.dvi' or \
