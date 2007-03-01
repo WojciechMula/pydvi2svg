@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.14 2007-03-01 14:12:03 wojtek Exp $
+# $Id: dvi2svg.py,v 1.15 2007-03-01 15:13:41 wojtek Exp $
 # 
 # license: BSD
 #
@@ -12,6 +12,8 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
+ 1.03.2007
+    - fixed bug
 16.10.2006
 	- moved get_basename to utils.py
 	- implementation of SVGTextDocument finished
