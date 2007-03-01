@@ -18,8 +18,8 @@ Why another convert?  Because programs I've checked---if they worked of
 course---embeded SVG font in the file.  This is not supported by most
 of SVG viewer/editor programs, including Inkscape_ that I use often.
 Because of that ``pydvi2svg`` embeds *glifs* as a paths and simply links
-to them. It works perfectly. Tested with Inkscape, Firefox 1.5 and
-gqview.
+to them. It works perfectly. Tested with gqview, rsvg, Inkscape,
+Firefox 1.5-2.0 and Opera 9.
 
 
 Samples
