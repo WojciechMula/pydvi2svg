@@ -8,6 +8,10 @@ Last update: 16.10.2006
 
 News
 ------------------------------------------------------------------------
+1.03.2007
+	
+	Some bugs were fixed, thanks for help to **R (Chandra)
+	Chandrasekhar**.
 
 16.10.2006
 
@@ -19,6 +23,10 @@ News
 	glyph outlines (need FreeType2_).  Compilation::
 
 		gcc -O2 -lfreetype fnt2meta.c -o fnt2meta
+	
+	or::
+		
+		gcc -O2 `freetype-config --libs` `freetype-config --cflags` -o fnt2meta fnt2meta.c
 	
 
 15.10.2006

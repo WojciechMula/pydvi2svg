@@ -80,6 +80,8 @@ nastêpuj±co::
 
 	pydvi2svg
 	 |
+	 +- cache (pusty katalog)
+	 |
 	 +- enc
 	 |
 	 +- fonts
