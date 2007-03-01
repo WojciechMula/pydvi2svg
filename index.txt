@@ -36,9 +36,10 @@ __ fnt2meta.c
 .. _FreeType2:	http://www.freetype.org
 
 
+.. include:: index.en
+
 .. include:: index.pl
 
-.. include:: index.en
 
 ..
 	vim: tw=72 ts=4 sw=4 noexpandtab
