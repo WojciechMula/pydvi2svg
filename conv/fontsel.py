@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.13 2006-11-13 19:12:48 wojtek Exp $
+# $Id: fontsel.py,v 1.14 2007-03-01 16:25:13 wojtek Exp $
 #
 # license: BSD
 #
@@ -177,10 +177,10 @@ def create_DVI_font(fontname, k, s, d, findenc):
 			setup.font_lookup,
 			font.name,
 			font.designsize,
-			font.encoding)
+			enc)
 		)
 		file = open(setup.font_lookup, 'a')
-		file.write("%s\t\t%s\t\t%s\n" % (font.name, font.encoding, str(font.designsize)))
+		file.write("%s\t\t%s\t\t%s\n" % (font.name, enc, str(font.designsize)))
 		file.close()
 	
 	
