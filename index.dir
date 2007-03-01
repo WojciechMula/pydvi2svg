@@ -1,5 +1,5 @@
 style:	style.css
-rest:	index.txt
+rest:	index.txt	index.pl index.en
 
 copy:	fonts.tar.bz2
 copy:	pydvi2svg.tar.bz2
