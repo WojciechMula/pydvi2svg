@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Some utils
-# $Id: utils.py,v 1.3 2006-10-16 16:03:24 wojtek Exp $
+# $Id: utils.py,v 1.4 2007-03-02 19:59:01 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,6 +10,8 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
+ 1.03.2007
+	- bug fixed
 16.10.2006
 	- get_basename moved from dvi2svg
 15.10.2006
@@ -101,7 +103,7 @@ def parse_pagedef(string, min, max):
 		else:
 			raise ValueError("Wrong syntax: %s" % item)
 	#rof
-	return list(Set(result))
+	return list(set(result))
 
 
 def parse_enc_repl(string):
