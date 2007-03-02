@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.15 2007-03-01 15:13:41 wojtek Exp $
+# $Id: dvi2svg.py,v 1.16 2007-03-02 18:25:19 wojtek Exp $
 # 
 # license: BSD
 #
@@ -131,6 +131,7 @@ class SVGGfxDocument:
 	def put_char(self, h, v, fntnum, dvicode, color=None, next=False):
 		try:
 			glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
+			assert glyph is not None, (fntnum, dvicode)
 		except KeyError:
 			return 0.0
 
@@ -537,17 +538,19 @@ if __name__ == '__main__':
 		# 3. Preload fonts
 		#
 
-		missing = False
+		missing = []
 		for k in fonts:
 			_, s, d, fontname = fonts[k]
+			log.debug("Font %s=%s" % (k, fontname))
+			#print "Font %s=%s" % (k, fontname)
 			try:
 				fontsel.create_DVI_font(fontname, k, s, d, options.enc_methods)
 			except fontsel.FontError, e:
 				log.error("Can't find font '%s': %s" % (fontname, str(e)))
-				missing = True
+				missing.append((k, fontname))
 
 		if missing:
-			log.info("There were some unavailable fonts, skipping file '%s'" % dvi.name)
+			log.info("There were some unavailable fonts, skipping file '%s'; list of fonts: %s" % (dvi.name, ", ".join("%d=%s" % kf for kf in missing)))
 			continue
 
 		#
