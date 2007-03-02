@@ -1,4 +1,5 @@
 TeX text		= tex256
+TEX TEXT		= tex256
 TeX math extension	= texmext
 TeX math italic		= texmital
 TeX math symbols	= texmsym

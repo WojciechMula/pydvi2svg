@@ -68,13 +68,16 @@ Following archives are needed:
 
 1. `pydvi2svg.tar.bz2 <pydvi2svg.tar.bz2>`_	--- source files
 2. `fonts.tar.bz2 <fonts.tar.bz2>`_			---  *Computer Modern* fonts converted to SVG 
+3. `pydvi2svg-full.tar.bz2 <pydvi2svg-full.tar.bz2>`_ --- both source & fonts
 
 
-If you have them, then:
+If you have them, then::
 
-1. unpack ``pydvi2svg.tar.bz2`` --- directory  ``pydvi2svg`` will be created
-2. change to this directory
-3. unpack ``fonts.tar.bz2`` --- subdirectory ``fonts`` will be created
+	$ tar -xjf pydvi2svg.tar.bz2
+	$ tar -xjf fonts.tag.bz2
+
+or 
+	$ tar -xjf pydvi2svg-full.tar.bz2
 
 
 After correct installation directory tree should looks

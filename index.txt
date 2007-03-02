@@ -2,12 +2,18 @@
                             pydvi2svg
 ========================================================================
 
-Last update: 1.03.2007
+Last update: 2.03.2007
 
 .. contents:: Contents
 
 News
 ------------------------------------------------------------------------
+
+2.03.2007
+
+	* Improved .PFA/.PFB searching
+	* Another bug fixed
+
 1.03.2007
 	
 	Some bugs were fixed, thanks for help to **R (Chandra)
