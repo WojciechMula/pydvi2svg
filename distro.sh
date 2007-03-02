@@ -1,5 +1,7 @@
 #!/bin/sh
 
-#tar -cjf fonts.tar.bz2 fonts/cm
+d=pydvi2svg
 cd ..
-tar --exclude=pydvi2svg/path_element.py -cjf pydvi2svg/pydvi2svg.tar.bz2 pydvi2svg/*.py pydvi2svg/enc pydvi2svg/cache
+tar --exclude=$d/path_element.py --exclude=$d/enc/CVS -cjf $d/$d.tar.bz2 $d/*.py $d/enc $d/cache
+tar -cjf $d/fonts.tar.bz2 $d/fonts/cm/*
+tar --exclude=$d/path_element.py --exclude=$d/enc/CVS -cjf $d/$d-full.tar.bz2 $d/*.py $d/enc $d/cache $d/fonts/cm/*
