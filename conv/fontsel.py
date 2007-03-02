@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.14 2007-03-01 16:25:13 wojtek Exp $
+# $Id: fontsel.py,v 1.15 2007-03-02 18:26:00 wojtek Exp $
 #
 # license: BSD
 #
@@ -11,6 +11,9 @@
 
 # Changelog
 '''
+ 2.03.2006
+	- fixed bug in make_cache_file
+	- better pfa/pfb detecting
 13.11.2006
 	- use findfile.which to detect Fontforge/fnt2meta
 16.10.2006
@@ -55,8 +58,6 @@ import re
 import os
 import cPickle
 import logging
-
-from sets import Set
 
 import setup
 import findfile
@@ -155,7 +156,7 @@ def create_DVI_font(fontname, k, s, d, findenc):
 				break
 
 		elif method == 'g':	# compare with all ENC files
-			glyph_names = Set(font.glyphs_dict.keys())
+			glyph_names = set(font.glyphs_dict.keys())
 			enc_list    = guess_encoding(glyph_names)
 
 			if enc_list:
@@ -412,7 +413,7 @@ def guess_encoding(font_names):
 
 		for file_path in enc_files:
 			try:
-				name_list = Set(encoding.read_ENC(open(file_path, 'r'))[1])
+				name_list = set(encoding.read_ENC(open(file_path, 'r'))[1])
 				enc_file_list.append( (file_path, name_list) )
 			except encoding.ENCFileError, e:
 				log.debug("ENCFileError: %s" % str(e))
@@ -466,7 +467,7 @@ class Font:
 
 class Glyph:
 	def __init__(self):
-		self.path    = None
+		self.path    = ""
 		self.unicode = u""
 		self.name    = ""
 
@@ -487,6 +488,20 @@ def make_cache_file(fontname):
 	if not filename:
 		type1file = findfile.locate(fontname + '.pfb') or \
 		            findfile.locate(fontname + '.pfa')
+
+		if not type1file:
+			# there is no pfa/pfb named fontname,
+			# try to find pfa/pfb with some prefix as fontname
+			
+			# XXX: rewrite
+			import string
+			prefix = fontname.translate(string.maketrans("0123456789", " "*10)).split()[0]
+			if prefix:
+				def pred(path, filename):
+					f = filename.lower()
+					return f.startswith(prefix) and\
+					       (f.endswith(".pfa") or f.endswith(".pfb"))
+				type1file = findfile.find_file(setup.tex_paths, pred)
 
 		if type1file:
 			log.info("Found Type1 font: %s" % type1file)
