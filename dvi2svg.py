@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.16 2007-03-02 18:25:19 wojtek Exp $
+# $Id: dvi2svg.py,v 1.17 2007-03-03 12:42:15 wojtek Exp $
 # 
 # license: BSD
 #
@@ -12,6 +12,11 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
+ 3.03.2007
+	- options are global (moved to setup.py)
+	- new switches:
+	  * --no-fontforge
+	  * --no-fnt2meta
  1.03.2007
     - fixed bug
 16.10.2006
@@ -82,12 +87,11 @@ import os
 import xml.dom
 import logging
 
-from sets import Set
-
 import dviparser
 import fontsel
 import findfile
 import utils
+import setup
 
 from binfile import binfile
 from colors  import is_colorspecial, execute
@@ -96,15 +100,13 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('dvi2svg')
 
 class SVGGfxDocument:
-	"""
-	Outputs glyphs
-	"""
+	"Outputs glyphs"
 	def __init__(self, mag, scale, unit_mm, page_size):
 		self.mag		= mag		# maginication
 		self.scale		= scale		# additional scale
 		self.oneinch	= 25.4/unit_mm
 
-		self.id		= Set()
+		self.id			= set()
 		self.scale2str	= lambda x: "%0.5f" % x
 		self.coord2str	= lambda x: "%0.3f" % x
 		
@@ -484,24 +486,34 @@ if __name__ == '__main__':
 	                  dest="enc_methods",
 					  default="c,t,a")
 
-	(options, args) = parser.parse_args()
+	parser.add_option("--no-fontforge",
+					  action="store_false",
+	                  dest="use_fontforge",
+					  default=True)
+	
+	parser.add_option("--no-fnt2meta",
+					  action="store_false",
+	                  dest="use_fnt2meta",
+					  default=True)
+
+	(setup.options, args) = parser.parse_args()
 	if not args:
 		log.info("Nothing to do.")
 		sys.exit()
 	
-	options.enc_methods = utils.parse_enc_methods(options.enc_methods)
+	setup.options.enc_methods = utils.parse_enc_methods(setup.options.enc_methods)
 
-	if options.enc_repl:
-		fontsel.preload(utils.parse_enc_repl(options.enc_repl))
+	if setup.options.enc_repl:
+		fontsel.preload(utils.parse_enc_repl(setup.options.enc_repl))
 	else:
 		fontsel.preload()
 
 	
 	from paper_size import paper_size
 	try:
-		(pw, ph) = paper_size[options.paper_size.upper()]
+		(pw, ph) = paper_size[setup.options.paper_size.upper()]
 		log.debug("Paper size set to %s (%dmm x %dmm)",
-		          options.paper_size.upper(), pw, ph)
+		          setup.options.paper_size.upper(), pw, ph)
 	except (KeyError, AttributeError):
 		(pw, ph) = paper_size['A4']
 
@@ -544,7 +556,7 @@ if __name__ == '__main__':
 			log.debug("Font %s=%s" % (k, fontname))
 			#print "Font %s=%s" % (k, fontname)
 			try:
-				fontsel.create_DVI_font(fontname, k, s, d, options.enc_methods)
+				fontsel.create_DVI_font(fontname, k, s, d, setup.options.enc_methods)
 			except fontsel.FontError, e:
 				log.error("Can't find font '%s': %s" % (fontname, str(e)))
 				missing.append((k, fontname))
@@ -556,14 +568,14 @@ if __name__ == '__main__':
 		#
 		# 4. process pages
 		#
-		if options.pages == None:	# processing all pages
+		if setup.options.pages == None:	# processing all pages
 			pages = range(0, n)
-		else:				# processing selected pages
+		else: # processing selected pages
 			try:
-				tmp   = utils.parse_pagedef(options.pages, 1, n)
+				tmp   = utils.parse_pagedef(setup.options.pages, 1, n)
 				pages = [p-1 for p in tmp]
 			except ValueError, e:
-				log.warning("Argument of --pages switch has invalid syntax ('%s'), processing first page", options.pages)
+				log.warning("Argument of --pages switch has invalid syntax ('%s'), processing first page", setup.options.pages)
 				pages = [0]
 
 		# ok, write the file
@@ -573,16 +585,16 @@ if __name__ == '__main__':
 		scale = unit_mm * 72.27/25.4
 		mag   = mag/1000.0
 		try:
-			mag *= float(options.scale)
+			mag *= float(setup.options.scale)
 		except ValueError:
 			pass
 
-		if options.generate_text:
+		if setup.options.generate_text:
 			SVGDocument = SVGTextDocument
 		else:
 			SVGDocument = SVGGfxDocument
 
-		if options.single_file:
+		if setup.options.single_file:
 			svg = SVGDocument(1.25 * mag, scale, unit_mm, (pw,ph))
 			for i, pageno in enumerate(pages):
 				log.info("Procesing page %d (%d of %d)", pageno+1, i+1, len(pages))
@@ -590,7 +602,7 @@ if __name__ == '__main__':
 				svg.new_page()
 				convert_page(dvi, svg)
 
-			svg.save(basename + ".svg", options.prettyXML)
+			svg.save(basename + ".svg", setup.options.prettyXML)
 		else:
 			for i, pageno in enumerate(pages):
 				log.info("Procesing page %d (%d of %d)", pageno+1, i+1, len(pages))
@@ -598,7 +610,7 @@ if __name__ == '__main__':
 				svg = SVGDocument(1.25 * mag, scale, unit_mm, (pw,ph))
 				svg.new_page()
 				convert_page(dvi, svg)
-				svg.save("%s%04d.svg" % (basename, pageno+1), options.prettyXML)
+				svg.save("%s%04d.svg" % (basename, pageno+1), setup.options.prettyXML)
 
 	sys.exit(0)
 
