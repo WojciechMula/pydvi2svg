@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.15 2007-03-02 18:26:00 wojtek Exp $
+# $Id: fontsel.py,v 1.16 2007-03-03 12:41:52 wojtek Exp $
 #
 # license: BSD
 #
@@ -11,6 +11,8 @@
 
 # Changelog
 '''
+ 3.03.2006
+	- fontforge/fntmeta issues
  2.03.2006
 	- fixed bug in make_cache_file
 	- better pfa/pfb detecting
@@ -67,6 +69,10 @@ import utils
 from binfile  import binfile
 from metrics  import read_TFM, TFMError, read_AFM, AFMError, read_MAP
 from encoding import EncodingDB, EncodingDBError
+
+fnt2meta_available  = True
+fontforge_available = True
+fnt2meta_path = "fnt2meta"
 
 # create encodingDB instance
 encodingDB	= EncodingDB(setup.encoding_path, setup.tex_paths)
@@ -212,21 +218,25 @@ def get_char(fontnum, dvicode):
 		log.error("%s: missing char '%s'" % (font.name, glyphname))
 		raise e
 
-fnt2meta_available  = True
-fontforge_available = True
 def preload(enc_repl={}):
 	global fontforge_available
 	global fnt2meta_available
+	global fnt2meta_path
 
 	fontforge_available = findfile.which('fontforge') != None
 	fnt2meta_available  = findfile.which('fnt2meta') != None
-
+	if not fnt2meta_available:
+		tmp = os.path.join(os.path.dirname(__file__), 'fnt2meta')
+		if os.path.isfile(tmp):
+			fnt2meta_path = tmp
+			fnt2meta_available = True
+	
 	def yesno(val):
 		if val: return 'yes'
 		else:   return 'no'
 
 	log.debug('Fontforge available: %s', yesno(fontforge_available))
-	log.debug('fnt2meta available: %s', yesno(fontforge_available))
+	log.debug('fnt2meta available: %s', yesno(fnt2meta_available))
 
 	log.debug("Loading encoding names lookup from '%s'" % setup.enc_lookup)
 	load_enc_lookup()
@@ -505,12 +515,15 @@ def make_cache_file(fontname):
 
 		if type1file:
 			log.info("Found Type1 font: %s" % type1file)
-			log.info("... trying FontForge")
-			if fontforge_convert(type1file):
-				filename = findfile.find_file(setup.svg_font_path, svgpred)
-				log.info("... ... conversion successful!")
-			else:
-				log.info("... ... conversion failed")
+			if setup.options.use_fontforge and fontforge_available:
+				log.info("... trying FontForge")
+				if fontforge_convert(type1file):
+					filename = findfile.find_file(setup.svg_font_path, svgpred)
+					log.info("... ... conversion successful!")
+				else:
+					log.info("... ... conversion failed")
+
+			if not filename and setup.options.use_fnt2meta and fnt2meta_available:
 				log.info("... trying fnt2meta")
 				meta = load_metadata(type1file)
 				if meta:
@@ -524,6 +537,8 @@ def make_cache_file(fontname):
 					cPickle.dump(font, f, protocol=cPickle.HIGHEST_PROTOCOL)
 					f.close()
 					return
+				else:
+					log.info("... ... conversion failed")
 		#fi
 
 	if filename:
@@ -607,13 +622,11 @@ def make_cache_file(fontname):
 	cPickle.dump(font, open(setup.cache_path + fontname + '.cache', 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
 
 
-
-fnt2meta_available = True
 def load_metadata(filename):
 	global fnt2meta_available
 
 	if fnt2meta_available:
-		stdout     = os.popen('fnt2meta %s' % filename, 'r')
+		stdout     = os.popen('%s %s' % (fnt2meta_path, filename), 'r')
 		meta       = stdout.readlines()
 		exitstatus = stdout.close()
 		if exitstatus:
