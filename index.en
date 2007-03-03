@@ -76,7 +76,8 @@ If you have them, then::
 	$ tar -xjf pydvi2svg.tar.bz2
 	$ tar -xjf fonts.tag.bz2
 
-or 
+or::
+
 	$ tar -xjf pydvi2svg-full.tar.bz2
 
 
@@ -98,6 +99,11 @@ Now you can create symbolic link do pydvi2svg.py in some directory
 listed from ``$PATH``, for example::
 
 	sudo ln -sf <full path to script>/dvi2svg.py /usr/local/bin/
+
+If ``realpath`` utility is present in your system, then::
+
+	sudo ln -sf `realpath pydvi2svg/dvi2svg.py` /usr/local/bin
+
 
 Program options
 ~~~~~~~~~~~~~~~
