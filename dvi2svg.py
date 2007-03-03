@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.17 2007-03-03 12:42:15 wojtek Exp $
+# $Id: dvi2svg.py,v 1.18 2007-03-03 20:09:29 wojtek Exp $
 # 
 # license: BSD
 #
@@ -17,6 +17,16 @@ __changelog__ = '''
 	- new switches:
 	  * --no-fontforge
 	  * --no-fnt2meta
+	- -paper-size accepts argument "query"
+	- a bit shorter output (id string became shorter):
+	  before:
+	  * sample10001.svg = 123483
+	  * sample10002.svg = 72777
+	  * sample20001.svg = 90202
+	  after:
+	  * sample10001.svg = 113055 (-10kB)
+	  * sample10002.svg = 66062  (-6.5kB)
+	  * sample20001.svg = 83599  (-6.5kB)
  1.03.2007
     - fixed bug
 16.10.2006
@@ -196,7 +206,7 @@ class SVGGfxDocument:
 					fntnum   = char[0]
 					dvicode  = char[1]
 					color    = char[6]
-					idstring = "%d-%02x" % (fntnum, dvicode)
+					idstring = "%02x%d" % (dvicode, fntnum)
 
 					c.setAttributeNS('xlink', 'xlink:href', '#'+idstring)
 					c.setAttribute('x', coord2str(H/glyphscale))
@@ -216,7 +226,7 @@ class SVGGfxDocument:
 				continue
 
 			path = self.document.createElement('path')
-			path.setAttribute("id", "%d-%02x" % (fntnum, dvicode))
+			path.setAttribute("id", "%02x%d" % (dvicode, fntnum))
 			path.setAttribute("d",  glyph)
 			defs.appendChild(path)
 
@@ -475,7 +485,7 @@ if __name__ == '__main__':
 
 	parser.add_option("--paper-size",
 	                  dest="paper_size",
-					  default=None)
+					  default="A4")
 	
 	parser.add_option("--generate-text",
 	                  action="store_true",
@@ -497,6 +507,25 @@ if __name__ == '__main__':
 					  default=True)
 
 	(setup.options, args) = parser.parse_args()
+
+	from paper_size import paper_size
+	ps = setup.options.paper_size.upper()
+	try:
+		(pw, ph) = paper_size[ps]
+		log.debug("Paper size set to %s (%dmm x %dmm)",
+		          setup.options.paper_size.upper(), pw, ph)
+	except KeyError:
+		if ps == "QUERY":
+			for name in sorted(paper_size.keys()):
+				(pw, ph) = paper_size[name]
+				print "%-4s: %dmm x %dmm" % (name, pw, ph)
+			del name
+			sys.exit()
+		else:
+			log.warning("Know nothing about paper size %s, defaults to A4" % ps)
+			(pw, ph) = paper_size['A4']
+	del ps
+	
 	if not args:
 		log.info("Nothing to do.")
 		sys.exit()
@@ -509,13 +538,6 @@ if __name__ == '__main__':
 		fontsel.preload()
 
 	
-	from paper_size import paper_size
-	try:
-		(pw, ph) = paper_size[setup.options.paper_size.upper()]
-		log.debug("Paper size set to %s (%dmm x %dmm)",
-		          setup.options.paper_size.upper(), pw, ph)
-	except (KeyError, AttributeError):
-		(pw, ph) = paper_size['A4']
 
 	for filename in args:
 	
@@ -562,7 +584,7 @@ if __name__ == '__main__':
 				missing.append((k, fontname))
 
 		if missing:
-			log.info("There were some unavailable fonts, skipping file '%s'; list of fonts: %s" % (dvi.name, ", ".join("%d=%s" % kf for kf in missing)))
+			log.info("There were some unavailable fonts, skipping file '%s'; list of missing fonts: %s" % (dvi.name, ", ".join("%d=%s" % kf for kf in missing)))
 			continue
 
 		#
