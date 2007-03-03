@@ -11,4 +11,6 @@ cache_path	= path('cache/')
 font_lookup	= path('enc/font.info')
 enc_lookup	= path('enc/enc.info')
 
+options = None
+
 del path 
