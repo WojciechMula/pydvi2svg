@@ -2,12 +2,17 @@
                             pydvi2svg
 ========================================================================
 
-Last update: 2.03.2007
+Last update: 3.03.2007
 
 .. contents:: Contents
 
 News
 ------------------------------------------------------------------------
+
+3.03.2007
+
+	* Some improvements & new options ``--no-fontforge`` and
+	  ``--no-fnt2meta``
 
 2.03.2007
 

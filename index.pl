@@ -1,4 +1,4 @@
-Polski
+Polski (nie do koñca aktualne)
 ------------------------------------------------------------------------
 
 .. _Fontforge:	http://fontforge.sourceforge.net/

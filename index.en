@@ -127,7 +127,24 @@ Program options
 	(By default all pages are converted).
 
 ``--enc-method`` [list] **(new)**
-	**TODO**
+	Choose methods used to determine font encoding:
+
+	* ``cache`` (or ``c``) --- encoding is readed from file
+	  ``enc/font.info`` (or given with option ``--enc``)
+	* ``TFM`` (or ``t``) --- encoding is readed from TFM associated with font
+	* ``AFM`` (or ``a``) --- encoding is readed from AFM associated with font
+	* ``MAP`` (or ``m``) --- scans all ``.map`` files and try
+	  to find encoding used by other programs (like ``dvipis``);
+	  it is quite slow, but could bring good results if Type1
+	  fonts are used.
+	* ``guess`` (or ``g``) --- scans all known encodings (stored in
+	* files ``enc/*``) and hit best one, i.e. encoding that covers
+	  all or almost all characters defined in font; it could find
+	  more then one encoding --- in this case propositions are printed
+	  and programs do not perform any action; you have to try proposed
+	  encodings by passing them with ``--enc`` switch
+
+	Default value: cache,tfm
 
 ``--enc`` [list]
 	Override (or set) encoding of selected fonts.  Elements are
@@ -135,6 +152,12 @@ Program options
 	For example::
 	
 		--enc cmr12:ot1,pltt12:pltt
+
+``--no-fontforge``
+	Never use Fontforge (even if it is present)
+
+``--no-fnt2meta``
+	Never use fnt2meta (even if it is present)
 
 ``--scale`` [float number=1.0]
 	Change default scale of document
@@ -227,7 +250,7 @@ Here is a sample::
 
 
 ``pydvi2svg`` tries to find TFM files and read encoding name (it tries
-AFM files too, but it is not well testes).   But if SVG font has been
+AFM files too, but it is not well tested).   But if SVG font has been
 converted from, for example, Type1 format its' encoding may be
 different.
 
