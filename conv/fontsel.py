@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.16 2007-03-03 12:41:52 wojtek Exp $
+# $Id: fontsel.py,v 1.17 2007-03-04 21:55:36 wojtek Exp $
 #
 # license: BSD
 #
@@ -11,9 +11,11 @@
 
 # Changelog
 '''
- 3.03.2006
+ 4.03.2007
+	- mftrace support
+ 3.03.2007
 	- fontforge/fntmeta issues
- 2.03.2006
+ 2.03.2007
 	- fixed bug in make_cache_file
 	- better pfa/pfb detecting
 13.11.2006
@@ -69,9 +71,11 @@ import utils
 from binfile  import binfile
 from metrics  import read_TFM, TFMError, read_AFM, AFMError, read_MAP
 from encoding import EncodingDB, EncodingDBError
+from unic     import transcode, name_lookup
 
 fnt2meta_available  = True
 fontforge_available = True
+mftrace_available   = True
 fnt2meta_path = "fnt2meta"
 
 # create encodingDB instance
@@ -215,14 +219,17 @@ def get_char(fontnum, dvicode):
 		glyph = font.glyphs_dict[glyphname]
 		return glyph.path, font.scale, glyph.hadv * font.hadvscale
 	except KeyError, e:
-		log.error("%s: missing char '%s'" % (font.name, glyphname))
+		log.error("%s: missing char '%s' (%d=0x%02x)", font.name, glyphname, dvicode, dvicode)
 		raise e
+
 
 def preload(enc_repl={}):
 	global fontforge_available
 	global fnt2meta_available
+	global mftrace_available
 	global fnt2meta_path
 
+	mftrace_available   = findfile.which('mftrace') != None
 	fontforge_available = findfile.which('fontforge') != None
 	fnt2meta_available  = findfile.which('fnt2meta') != None
 	if not fnt2meta_available:
@@ -237,6 +244,7 @@ def preload(enc_repl={}):
 
 	log.debug('Fontforge available: %s', yesno(fontforge_available))
 	log.debug('fnt2meta available: %s', yesno(fnt2meta_available))
+	log.debug('mftrace available: %s', yesno(mftrace_available))
 
 	log.debug("Loading encoding names lookup from '%s'" % setup.enc_lookup)
 	load_enc_lookup()
@@ -245,12 +253,13 @@ def preload(enc_repl={}):
 	load_font_info()
 	for fontname, newenc in enc_repl.iteritems():
 		if fontname not in config.fonts_lookup:
-			continue
-
-		enc, ds = config.fonts_lookup[fontname]
-		if enc != newenc:
 			log.debug("Encoding of '%s' set to %s", fontname, newenc)
-			config.fonts_lookup[fontname] = (newenc, ds)
+			config.fonts_lookup[fontname] = (newenc, 10.0)
+		else:
+			enc, ds = config.fonts_lookup[fontname]
+			if enc != newenc:
+				log.debug("Encoding of '%s' chenged to %s (from %s)", fontname, newenc, enc)
+				config.fonts_lookup[fontname] = (newenc, ds)
 
 
 def load_font(fontname):
@@ -540,6 +549,21 @@ def make_cache_file(fontname):
 				else:
 					log.info("... ... conversion failed")
 		#fi
+	
+	if not filename and not type1file:
+		mffile = findfile.locate(fontname + '.mf')
+		if mffile:
+			log.info("METAFONT source found, trying mftrace...")
+			if mftrace_convert(mffile):
+				filename = findfile.find_file(setup.svg_font_path, svgpred)
+				if filename:
+					log.info("... ... conversion successful")
+				else:
+					log.info("... ... conversion failed")
+			else:
+				log.info("... ... conversion failed")
+				
+		
 
 	if filename:
 		log.debug("Using SVG font '%s' as '%s'", filename, font.name)
@@ -578,6 +602,15 @@ def make_cache_file(fontname):
 	else:
 		font.fontfamily = fontname
 
+	try:
+		fontface = data.getElementsByTagName('font-face')[0]
+		if fontface.getAttribute('bbox') and fontface.getAttribute('units-per-em'):
+			xmin,ymin, xmax,ymax = map(float, fontface.getAttribute('bbox').replace(",", " ").split())
+			upem = float(fontface.getAttribute('units-per-em'))
+#			raise str((upem, (ymax-ymin)))
+	except IndexError:
+		pass
+
 	# e. load fonts
 	font.glyphs_dict = {}
 	for node in fontnode.getElementsByTagName('glyph'):
@@ -602,6 +635,14 @@ def make_cache_file(fontname):
 		if glyph.name == '':
 			log.error("There is a glyph without name, skipping it")
 			continue
+
+		# 2a. transcode
+		if glyph.name not in name_lookup:
+			try:
+				glyph.name = transcode[glyph.name]
+			except KeyError:
+				log.error("Don't know what is '%s', skipping it", glyph.name)
+				continue
 
 		# 3. get horiz-adv-x
 		if node.hasAttribute('horiz-adv-x'):
@@ -730,6 +771,21 @@ def fontforge_convert(fullpath):
 	if exitstatus:
 		if exitstatus >> 8 == 127:
 			fontforge_available = False
+		return False
+	else:
+		return True
+
+
+def mftrace_convert(mffile):
+	global mftrace_available
+
+	mfname = os.path.split(mffile)[1][:-3] # just name is needed, no path, no extension
+
+	cmd = "cd %s; mftrace --formats=svg %s" % (setup.svg_font_path, mfname)
+	exitstatus = os.system(cmd)
+	if exitstatus:
+		if exitstatus >> 8 == 127:
+			mftrace_available = False
 		return False
 	else:
 		return True
