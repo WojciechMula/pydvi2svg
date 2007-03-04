@@ -11,8 +11,11 @@ News
 
 3.03.2007
 
-	* Some improvements & new options ``--no-fontforge`` and
-	  ``--no-fnt2meta``
+	* generate a bit smaller SVG files
+	* new options ``--no-fontforge`` and ``--no-fnt2meta`` that
+	  disables use of FontForge/fnt2meta
+	* option ``--paper-size`` accepts value "query" --- all known
+	  names & sizes are printed
 
 2.03.2007
 
