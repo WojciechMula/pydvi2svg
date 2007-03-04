@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.18 2007-03-03 20:09:29 wojtek Exp $
+# $Id: dvi2svg.py,v 1.19 2007-03-04 21:55:52 wojtek Exp $
 # 
 # license: BSD
 #
@@ -53,7 +53,7 @@ __changelog__ = '''
 	- implemented --page-size switch
 
  4.10.2006
-	- much smaller SVG output; characters with some scale factor
+	- much smaller SVG output; characters with same scale factor
 	  and y coordinate are grouped;
 
 	  For example:
