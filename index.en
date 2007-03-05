@@ -163,7 +163,9 @@ Program options
 	Change default scale of document
 
 ``--paper-size`` [name=A4]
-	Set page format: A4, B3, etc.; see :enwiki:`Paper size|Wikipedia`
+	Set page format: A4, B3, etc.; see :enwiki:`Paper size|Wikipedia`.
+	Pass argument ``query`` to see all known names.
+
 
 ``--single-file``
 	All pages are saved in single file. (By default pages are
