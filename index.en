@@ -168,10 +168,10 @@ Program options
 
 	* page format name, like A4, B3, etc.; see :enwiki:`Paper size|Wikipedia`
 	* string ``query`` --- all known names are printed and program exits
-	* string ``bbox`` --- paper size is set bounding box of page;
+	* string ``bbox`` --- paper size is set to bounding box of page;
 	  additionaly ``bbox:marginxy`` and ``bbox:marginx,marginy`` is
 	  supported to set margin around bounding box, for example
-	  ``--paper-size=bbox:10``, --paper-size:bbox:5:20``
+	  ``--paper-size=bbox:10``, --paper-size:bbox:5,20``
 
 
 ``--single-file``
