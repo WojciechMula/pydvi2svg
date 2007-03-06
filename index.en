@@ -171,7 +171,7 @@ Program options
 	* string ``bbox`` --- paper size is set to bounding box of page;
 	  additionaly ``bbox:marginxy`` and ``bbox:marginx,marginy`` is
 	  supported to set margin around bounding box, for example
-	  ``--paper-size=bbox:10``, --paper-size:bbox:5,20``
+	  ``--paper-size=bbox:10``, ``--paper-size:bbox:5,20``
 
 
 ``--single-file``
