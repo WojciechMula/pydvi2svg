@@ -2,12 +2,21 @@
                             pydvi2svg
 ========================================================================
 
-Last update: 4.03.2007
+Last update: 6.03.2007
 
 .. contents:: Contents
 
 News
 ------------------------------------------------------------------------
+
+6.03.2007
+	
+	* Switch ``--paper-size`` accept new keyword ``bbox`` --- bounding box
+	  is calculated and document dimensions are set to these values.
+	  Additionaly you can set margins around bbox to get a frame around
+	  image (see description of this option for details).  And here is
+	  a sample, `famous Einstein equation <samples/emc2.svg>`_.
+	* new option ``--verbose``
 
 4.03.2007
 
