@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.19 2007-03-04 21:55:52 wojtek Exp $
+# $Id: dvi2svg.py,v 1.20 2007-03-06 20:49:34 wojtek Exp $
 # 
 # license: BSD
 #
@@ -12,6 +12,10 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
+ 6.03.2007
+	- calculate page bbox
+	- --paper-size accepts keyword "bbox"
+	- new switch --verbose
  3.03.2007
 	- options are global (moved to setup.py)
 	- new switches:
@@ -106,9 +110,6 @@ import setup
 from binfile import binfile
 from colors  import is_colorspecial, execute
 
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger('dvi2svg')
-
 class SVGGfxDocument:
 	"Outputs glyphs"
 	def __init__(self, mag, scale, unit_mm, page_size):
@@ -117,6 +118,7 @@ class SVGGfxDocument:
 		self.oneinch	= 25.4/unit_mm
 
 		self.id			= set()
+		self.bbox_cache = {}
 		self.scale2str	= lambda x: "%0.5f" % x
 		self.coord2str	= lambda x: "%0.3f" % x
 		
@@ -167,6 +169,24 @@ class SVGGfxDocument:
 		page.setAttribute('transform', 'scale(%s)' % str(self.mag))
 		self.svg.appendChild(page)
 		
+		# 0. get bounding box (if needed)
+		if setup.options.use_bbox:
+			xmin, ymin, xmax, ymax = self.__get_page_bbox(page)
+			
+			xmin -= setup.options.bbox_margin_x
+			ymin -= setup.options.bbox_margin_y
+			xmax += setup.options.bbox_margin_x
+			ymax += setup.options.bbox_margin_y
+			
+			dx = (xmax - xmin)*self.mag
+			dy = (ymax - ymin)*self.mag
+			self.svg.setAttribute("width",  coord2str(dx))
+			self.svg.setAttribute("height", coord2str(dy))
+			self.svg.setAttribute("viewBox", "%s %s %s %s" % 
+				(coord2str(xmin*self.mag), coord2str(ymin*self.mag),
+				coord2str(dx), coord2str(dy))
+			)
+		
 		# 1. make rules (i.e. filled rectangles)
 		for (h,v, a, b, color) in self.rules:
 			rect = new('rect')
@@ -181,6 +201,7 @@ class SVGGfxDocument:
 
 		# 2. process chars
 		from utils import group_elements as group
+		
 
 		# (fntnum, dvicode, next, H, V, glyphscale, color)
 
@@ -212,8 +233,77 @@ class SVGGfxDocument:
 					c.setAttribute('x', coord2str(H/glyphscale))
 					if color:
 						c.setAttribute('style', 'fill:%s' % color)
-					
+
 		#rof
+	
+	def __get_page_bbox(self, page):
+		"Returns bbox of chars (self.chars) and rules (self.reules)."
+
+		import path_element
+		new  = self.document.createElement
+		X = []
+		Y = []
+
+		# bbox of chars
+		for (fntnum, dvicode, next, H, V, glyphscale, color) in self.chars:
+			try:
+				bbox = self.bbox_cache[fntnum, dvicode]
+			except KeyError:
+				path   = fontsel.get_char(fntnum, dvicode)[0]
+				tokens = path_element.tokens(path)
+				bbox   = path_element.bounding_box(tokens)
+				self.bbox_cache[fntnum, dvicode] = bbox
+
+			(xmin, ymin), (xmax, ymax) = bbox
+			X.append(H+xmax*glyphscale)
+			X.append(H+xmin*glyphscale)
+			Y.append(V-ymax*glyphscale)
+			Y.append(V-ymax*glyphscale + (ymax-ymin)*glyphscale)
+
+			"""
+			# blue background for char's bbox (TESTING)
+			tmp = new('rect')
+			tmp.setAttribute('fill',  '#aaf')
+			tmp.setAttribute('x', str(H+xmax*glyphscale))
+			tmp.setAttribute('y', str(V-ymax*glyphscale))
+			tmp.setAttribute('width',  str(glyphscale * (xmin-xmax)))
+			tmp.setAttribute('height', str(glyphscale * (ymax-ymin)))
+			page.appendChild(tmp)
+			"""
+	
+		# bbox of rules
+		for (h,v, a, b, color) in self.rules:
+			X.append(self.scale * (h + self.oneinch))
+			X.append(self.scale * (h + self.oneinch + b))
+			
+			Y.append(self.scale * (v - a + self.oneinch))
+			Y.append(self.scale * (v + self.oneinch))
+			# coord2str(self.scale * (h + self.oneinch)))
+			# coord2str(self.scale * (v - a + self.oneinch)))
+			# coord2str(self.scale * b))
+			# coord2str(self.scale * a))
+
+		# get bbox
+		xmin = min(X)
+		xmax = max(X)
+
+		ymin = min(Y)
+		ymax = max(Y)
+
+		"""
+		# red frame around bbox (TESTING)
+		tmp = new('rect')
+		tmp.setAttribute("x", str(xmin))
+		tmp.setAttribute("y", str(ymin))
+		tmp.setAttribute("width",  str(xmax - xmin))
+		tmp.setAttribute("height", str(ymax - ymin))
+		tmp.setAttribute('fill',  'none')
+		tmp.setAttribute('stroke','red')
+		tmp.setAttribute('stroke-width', '2')
+		page.appendChild(tmp)
+		"""
+		
+		return xmin, ymin, xmax, ymax
 
 	
 	def save(self, filename, prettyXML=False):
@@ -505,13 +595,27 @@ if __name__ == '__main__':
 					  action="store_false",
 	                  dest="use_fnt2meta",
 					  default=True)
+	
+	parser.add_option("--verbose",
+					  action="store_true",
+	                  dest="verbose",
+					  default=False)
 
 	(setup.options, args) = parser.parse_args()
 
+	# set logging level
+	if setup.options.verbose:
+		logging.basicConfig(level=logging.DEBUG)
+	else:
+		logging.basicConfig(level=logging.INFO)
+	log = logging.getLogger('dvi2svg')
+
+	# read paper size/print all known paper-size names
 	from paper_size import paper_size
 	ps = setup.options.paper_size.upper()
 	try:
 		(pw, ph) = paper_size[ps]
+		setup.options.use_bbox = False
 		log.debug("Paper size set to %s (%dmm x %dmm)",
 		          setup.options.paper_size.upper(), pw, ph)
 	except KeyError:
@@ -521,6 +625,31 @@ if __name__ == '__main__':
 				print "%-4s: %dmm x %dmm" % (name, pw, ph)
 			del name
 			sys.exit()
+		elif ps.startswith("BBOX"): # Bounding box
+			(pw, ph) = (0, 0)
+			
+			# variants:
+			#  1. BBOX
+			#  2. BBOX:number
+			#  3. BBOX:number,number
+			setup.options.use_bbox = True
+		
+			mx = my = 0.0
+			if ps.startswith("BBOX:"): # 2. & 3.
+				tmp = ps[5:].split(",", 2)
+				if len(tmp) == 1: # BBOX:number
+					mx = my = utils.safe_float(tmp[0])
+				else: # BBOX:number,number
+					mx = utils.safe_float(tmp[0])
+					my = utils.safe_float(tmp[1])
+
+			setup.options.bbox_margin_x = abs(mx)
+			setup.options.bbox_margin_y = abs(my)
+			log.debug("BBox margins: %0.2f, %0.2f",
+				setup.options.bbox_margin_x,
+				setup.options.bbox_margin_y
+			)
+				
 		else:
 			log.warning("Know nothing about paper size %s, defaults to A4" % ps)
 			(pw, ph) = paper_size['A4']
@@ -529,7 +658,8 @@ if __name__ == '__main__':
 	if not args:
 		log.info("Nothing to do.")
 		sys.exit()
-	
+
+	# load & process information about encoding
 	setup.options.enc_methods = utils.parse_enc_methods(setup.options.enc_methods)
 
 	if setup.options.enc_repl:
@@ -538,7 +668,7 @@ if __name__ == '__main__':
 		fontsel.preload()
 
 	
-
+	# process files
 	for filename in args:
 	
 		#
