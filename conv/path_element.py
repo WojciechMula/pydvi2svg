@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # SVG path data parser & bbox calculate
-# $Id: path_element.py,v 1.2 2007-03-06 20:50:27 wojtek Exp $
+# $Id: path_element.py,v 1.3 2007-03-06 20:55:05 wojtek Exp $
 # 
 # license: BSD
 #
@@ -100,94 +100,8 @@ def tokens(d_attribute, tofloat=float):
 		raise ValueError("No command set.")
 
 
-def translate(path, dx=0.0, dy=0.0):
-	path2 = []
-	for item in path:
-		command, params = item
-		if command in ['M', 'L', 'T']:
-			x,y = params
-			path2.append( (command, (x+dx, y+dy)) )	
-		elif command in ['V']:
-			y = params
-			path2.append( (command, y+dy) )
-		elif command in ['H']:
-			x = params
-			path2.append( (command, x+dx) )
-		elif command in ['S', 'Q']:
-			(x1,y1), (x2,y2) = params
-			path2.append( (command, (x1+dx,y1+dy, x2+dx,y2+dy)) )
-		elif command in ['C']:
-			(x1,y1), (x2,y2), (x3,y3) = params
-			path2.append( (command, ((x1+dx,y1+dy), (x2+dx,y2+dy), (x3+dx,y3+dy))) )
-		elif command in ['A']:
-			rx,ry, x_axis_rot, large_arc_flag, sweep_flag, x,y = params
-			path2.append( (command, (rx+dx,ry+dy, x_axis_rot, large_arc_flag, sweep_flag, x+dx,y+dy)) )
-		else:
-			path2.append(item)
 
-	return path2
-
-
-def scale(path, sx=1.0, sy=None):
-	if sy == None:
-		sy = sx
-
-	path2 = []
-	for item in path:
-		try:
-			command, params = item
-		except:
-			raise ValueError(str(item))
-		if command in ['m', 'M', 'l', 'L', 't', 'T']:
-			x,y = params
-			path2.append( (command, (x*sx, y*sy)) )
-		elif command in ['v', 'V']:
-			y = params
-			path2.append( (command, y*sy) )
-		elif command in ['h', 'H']:
-			x = params
-			path2.append( (command, x*sx) )
-		elif command in ['s', 'S', 'q', 'Q']:
-			(x1,y1), (x2,y2) = params
-			path2.append( (command, ((x1*sx,y1*sy), (x2*sx,y2*sy))) )
-		elif command in ['c', 'C']:
-			(x1,y1), (x2,y2), (x3,y3) = params
-			path2.append( (command, ((x1*sx,y1*sy), (x2*sx,y2*sy), (x3*sx,y3*sy))) )
-		elif command in ['a', 'A']:
-			(rx,ry), x_axis_rot, large_arc_flag, sweep_flag, (x,y) = param
-			path2.append( (command, ((rx*sx,ry*sy), x_axis_rot, large_arc_flag, sweep_flag, (x*sx,y*sy))) )
-		else:
-			path2.append(item)
-	return path2
-
-
-def to_path_string(L):
-	s = []
-	for command, param in L:
-		if command in ['m', 'M', 'l', 'L', 't', 'T']:
-			s.append('%s%f,%f' % ((command,) + param))
-		elif command in ['h', 'H', 'v', 'V']:
-			s.append('%s%f' % (command, param))
-		elif command in ['c', 'C']:
-			P0, P1, P2 = param
-			s.append('%s%f,%f %f,%f %f,%f' % ((command,) + P0 + P1 + P2))
-		elif command in ['s', 'S', 'q', 'Q']:
-			P0, P1 = param
-			s.append('%s%f,%f %f,%f' % ((command,) + P0 + P1))
-		elif command in ['a', 'A']:
-			(rx,ry), x_axis_rot, large_arc_flag, sweep_flag, (x,y) = param
-			s.append('%s%f,%f %f %d %d %f,%f' % (rx,ry, x_axis_rot, large_arc_flag, sweep_flag, x, y))
-		elif command in ['z', 'Z']:
-			s.append('%s' % command)
-		else:
-			raise NotImplementedError("Command '%s'." % command)
-	
-	return ' '.join(s)
-
-def nop(*arg):
-	pass
-
-def iter(L, init_x=0.0, init_y=0.0, line_fn=nop, ccurve_fn=nop, qcurve_fn=nop):
+def iter(L, init_x=0.0, init_y=0.0, line_fn=None, ccurve_fn=None, qcurve_fn=None):
 
 	cur_x = init_x		# current point
 	cur_y = init_y
@@ -200,6 +114,13 @@ def iter(L, init_x=0.0, init_y=0.0, line_fn=nop, ccurve_fn=nop, qcurve_fn=nop):
 
 	mlast_x1 = None		# last moveto coord (for 'z' -- closepath)
 	mlast_y1 = None
+
+	def nop(*arg):
+		pass
+	
+	line_fn   = line_fn or nop
+	ccurve_fn = ccurve_fn or nop
+	qcurve_fn = qcurve_fn or nop
 
 	prevcomm = 'none'
 	for command, param in L:
