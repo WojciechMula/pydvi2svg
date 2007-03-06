@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # Some utils
-# $Id: utils.py,v 1.4 2007-03-02 19:59:01 wojtek Exp $
+# $Id: utils.py,v 1.5 2007-03-06 20:41:08 wojtek Exp $
 # 
 # license: BSD
 #
@@ -10,6 +10,8 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 
 __changelog__ = '''
+ 6.03.2007
+	- +safe_float
  1.03.2007
 	- bug fixed
 16.10.2006
@@ -154,5 +156,11 @@ def get_basename(filename):
 		return filename
 
 basename = get_basename
+
+def safe_float(string, default=0.0):
+	try:
+		return float(string)
+	except ValueError:
+		return default
 
 # vim: ts=4 sw=4
