@@ -1,3 +1,16 @@
+#!/usr/bin/python
+# -*- coding: iso-8859-2 -*-
+#
+# pydvi2svg
+#
+# SVG path data parser & bbox calculate
+# $Id: path_element.py,v 1.2 2007-03-06 20:50:27 wojtek Exp $
+# 
+# license: BSD
+#
+# author: Wojciech Mu³a
+# e-mail: wojciech_mula@poczta.onet.pl
+
 import re
 import math
 
@@ -9,7 +22,7 @@ r_command = re.compile("\s*([MmZzLlHhVvCcSsQqTtAa])\s*")
 
 def tokens(d_attribute, tofloat=float):
 	d = d_attribute.replace('\n', ' ')
-	d = d.replace(',', ' ')	# I don't know why they introduced comma
+	d = d.replace(',', ' ')
 
 	class Tokenizer:
 		def __init__(self, d):
@@ -86,6 +99,7 @@ def tokens(d_attribute, tofloat=float):
 
 		raise ValueError("No command set.")
 
+
 def translate(path, dx=0.0, dy=0.0):
 	path2 = []
 	for item in path:
@@ -112,6 +126,7 @@ def translate(path, dx=0.0, dy=0.0):
 			path2.append(item)
 
 	return path2
+
 
 def scale(path, sx=1.0, sy=None):
 	if sy == None:
@@ -144,6 +159,7 @@ def scale(path, sx=1.0, sy=None):
 		else:
 			path2.append(item)
 	return path2
+
 
 def to_path_string(L):
 	s = []
