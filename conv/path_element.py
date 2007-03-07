@@ -4,104 +4,101 @@
 # pydvi2svg
 #
 # SVG path data parser & bbox calculate
-# $Id: path_element.py,v 1.3 2007-03-06 20:55:05 wojtek Exp $
+# $Id: path_element.py,v 1.4 2007-03-07 15:05:18 wojtek Exp $
 # 
 # license: BSD
 #
 # author: Wojciech Mu³a
 # e-mail: wojciech_mula@poczta.onet.pl
 
+# changelog
+"""
+ 7.03.2007
+	- function 'tokens' imporovements
+	- function 'iter' renamed to 'path_iter'
+"""
+
 import re
 import math
+import string
 
-number  = "([+-]?(?:\d+(?:\.\d*)?|\d*\.\d+))"
-r_number  = re.compile(number)
-r_pair    = re.compile("%s\s*%s\s*" % (number, number))
-r_flag    = re.compile("([01])\s*")
-r_command = re.compile("\s*([MmZzLlHhVvCcSsQqTtAa])\s*")
+r_split = re.compile("([MmZzLlHhVvCcSsQqTtAa])| ")
+s_trans = string.maketrans("\n\r,", "   ")
+set_Z   = set("zZ")
+set_VH  = set("vVhH")
+set_MLT = set("mMlLtT")
+set_SQ  = set("sSqQ")
+set_C   = set("cC")
+set_A   = set("aA")
+set_commands = set("zZvVhHmMlLtTsSqQcCaA")
+
 
 def tokens(d_attribute, tofloat=float):
-	d = d_attribute.replace('\n', ' ')
-	d = d.replace(',', ' ')
+	d = str(d_attribute).translate(s_trans)
 
-	class Tokenizer:
-		def __init__(self, d):
-			self.d = d
-			self.start = 0
+	# split into list of commands/parameters
+	d = filter(bool, re.split(r_split, d))
 
-		def command(self):
-			match = r_command.match(self.d, self.start)
-			if match:
-				self.start = match.end()
-				return match.group(1)
-			else:
-				return None
+	# iterate
+	d = iter(d)
 
-		def number(self):
-			match = r_number.match(self.d, self.start)
-			if match:
-				self.start = match.end()
-				x = tofloat(match.group(1))
-				return x
-			else:
-				raise ValueError("number expeced - got '%s...'" % self.d[self.start:self.start+20])
+	def number():
+		try:
+			item = d.next()
+			return float(item)
+		except StopIteration:
+			raise ValueError("Number expeced, end of list reached")
+		except ValueError:
+			raise ValueError("Number expeced - got '%s'" % item)
+	
+	def pair():
+		x = number()
+		y = number()
+		return x, y
+	
+	def flag():
+		try:
+			item = d.next()
+			v = int(item)
+		except StopIteration:
+			raise ValueError("Flag expeced, end of list reached")
+		except ValueError:
+			raise ValueError("Integer expeced, got '%s'" % flag)
 
-		def pair(self):
-			match = r_pair.match(self.d, self.start)
-			if match:
-				self.start = match.end()
-				x = tofloat(match.group(1))
-				y = tofloat(match.group(2))
-				return (x, y)
-			else:
-				raise ValueError("point expeced - got '%s...'" % self.d[self.start:self.start+40])
+		if v == 0 and v == 1:
+			return v
+		else:
+			raise ValueError("Flag must have value 0 or 1, got %d" % flag)
 
-		def flag(self):
-			match = r_flag.match(self.d, self.start)
-			if match:
-				self.start = match.end()
-				f = int(match.group(1))
-				return f
+			
+	command = 'undefined'
+	while True:
+		try:
+			tmp = d.next()
+		except StopIteration:
+			break
 
-		def __nonzero__(self):
-			return self.start < len(self.d)
-
-	tokenizer = Tokenizer(d)
-	command = "none"
-	while tokenizer:
-		tmp = tokenizer.command()
-		if tmp:
+		if tmp in set_commands:
 			command = tmp
-
-		if command in ['z', 'Z']:
+		
+		if command in set_Z:
 			yield (command, None)
-			continue
-
-		if command in ['v', 'V', 'h', 'H']:
-			yield (command, tokenizer.number())
-			continue
-		
-		if command in ['m', 'M', 'l', 'L', 't', 'T']:
-			yield (command, tokenizer.pair())
-			continue
-		
-		if command in ['s', 'S', 'q', 'Q']:
-			yield (command, (tokenizer.pair(), tokenizer.pair()))
-			continue
-		
-		if command in ['c', 'C']:
-			yield (command, (tokenizer.pair(), tokenizer.pair(), tokenizer.pair()))
-			continue
-		
-		if command in ['a', 'A']:
-			yield (command, (tokenizer.pair(), tokenizer.number(), tokenizer.flag(), tokenizer(flag), tokenizer.pair(), tokenizer.pair()))
-			continue
-
-		raise ValueError("No command set.")
+		elif command in set_VH:
+			yield (command, number())
+		elif command in set_MLT:
+			yield (command, pair())
+		elif command in set_SQ:
+			yield (command, (pair(), pair()))
+		elif command in set_C:
+			yield (command, (pair(), pair(), pair()))
+		elif command in set_A:
+			yield (command, (pair(), number(), flag(), flag(), pair(), pair()))
+		else:
+			raise ValueError("Unknown command '%s'" % command)
+	#while
 
 
-
-def iter(L, init_x=0.0, init_y=0.0, line_fn=None, ccurve_fn=None, qcurve_fn=None):
+def path_iter(L, init_x=0.0, init_y=0.0, line_fn=None, ccurve_fn=None, qcurve_fn=None):
 
 	cur_x = init_x		# current point
 	cur_y = init_y
@@ -455,7 +452,7 @@ def bounding_box(L):
 	#fed
 
 	
-	iter(L, line_fn=line, qcurve_fn=qbezier, ccurve_fn=cbezier)
+	path_iter(L, line_fn=line, qcurve_fn=qbezier, ccurve_fn=cbezier)
 	return (min(cur.x), min(cur.y)), (max(cur.x), max(cur.y))
 
 # vim: ts=4 sw=4
