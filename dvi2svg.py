@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.21 2007-03-07 15:07:17 wojtek Exp $
+# $Id: dvi2svg.py,v 1.22 2007-03-07 16:53:08 wojtek Exp $
 # 
 # license: BSD
 #
@@ -14,6 +14,8 @@
 # changelog
 """
  7.03.2007
+	- better command line parsing, now user can set name of
+	  output file or set output directory
 	- new switch --always-number
 	- extended "bbox" keyword, now four number are accepted
 	  (left/right & top/bottom margin)
@@ -684,28 +686,53 @@ if __name__ == '__main__':
 		fontsel.preload()
 
 	
-	# process files
-	for filename in args:
+	# process command line
+	def preprocess(filename):
+		# directory? (output)
+		if os.path.isdir(filename):
+			return ('dir', filename)
+
+		# DVI file? (input)
+		dir, fname = os.path.split(filename)
+		if dir == '': dir = '.'
+		def dvipred(p, f):
+			return f==fname or \
+			       f==fname + '.dvi' or \
+			       f==fname + '.DVI' or \
+			       f==fname + '.Dvi'
+		dvi = findfile.find_file(dir, dvipred, enterdir=lambda p, l: False)
+		if dvi is not None:
+			return ('dvi', dvi)
+		
+		# SVG file? (output)
+		if filename.lower().endswith('.svg'):
+			return ('svg', filename[:-4])
+
+		# none, skipping
+		log.info("File '%s' not found, skipping" % filename)
+		return None
+		
+	tmp  = filter(bool, map(preprocess, args))
+	args = []
+	for (t1, f1), (t2, f2) in zip(tmp, tmp[1:]):
+		if t1 == 'dvi':
+			if t2 == 'svg':
+				args.append( (f1, f2) )
+			elif t2 == 'dir':
+				basename = os.path.split(utils.get_basename(f1))[1]
+				args.append( (f1, os.path.join(f2, basename)) )
+			else:
+				basename = os.path.split(utils.get_basename(f1))[1]
+				args.append( (f1, basename) )
+
+	
+	for filename, basename in args:
 	
 		#
 		# 1. Open file
 		#
-		orig_filename = filename
-		dir, filename = os.path.split(filename)
-		if dir == '': dir = '.'
-		def dvipred(p, f):
-			return f==filename or \
-			       f==filename + '.dvi' or \
-			       f==filename + '.DVI' or \
-			       f==filename + '.Dvi'
-
-		filename = findfile.find_file(dir, dvipred, enterdir=lambda p, l: False)
-		if filename is None:
-			log.info("File '%s' not found, skipping" % orig_filename)
-			continue
-			
 		dvi = binfile(filename, 'rb')
-		log.info("Processing '%s' file", dvi.name) 
+		log.info("Processing '%s' file -> '%s'", filename, basename)
 
 		#
 		# 2. Read DVI info	
@@ -752,8 +779,6 @@ if __name__ == '__main__':
 				pages = [0]
 
 		# ok, write the file
-		basename = os.path.split(utils.get_basename(dvi.name))[1]
-
 			
 		scale = unit_mm * 72.27/25.4
 		mag   = mag/1000.0
@@ -791,4 +816,4 @@ if __name__ == '__main__':
 
 	sys.exit()
 
-# vim: ts=4 sw=4
+# vim: ts=4 sw=4 nowrap
