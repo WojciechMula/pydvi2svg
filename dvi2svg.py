@@ -4,14 +4,20 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.20 2007-03-06 20:49:34 wojtek Exp $
+# $Id: dvi2svg.py,v 1.21 2007-03-07 15:07:17 wojtek Exp $
 # 
 # license: BSD
 #
 # author: Wojciech Mu³a
 # e-mail: wojciech_mula@poczta.onet.pl
 
-__changelog__ = '''
+# changelog
+"""
+ 7.03.2007
+	- new switch --always-number
+	- extended "bbox" keyword, now four number are accepted
+	  (left/right & top/bottom margin)
+	- two bugs fixed
  6.03.2007
 	- calculate page bbox
 	- --paper-size accepts keyword "bbox"
@@ -94,7 +100,7 @@ __changelog__ = '''
 
  30.09.2006
  	- version 0.1 (based on previous experiments)
-'''
+"""
 
 import sys
 import os
@@ -173,10 +179,10 @@ class SVGGfxDocument:
 		if setup.options.use_bbox:
 			xmin, ymin, xmax, ymax = self.__get_page_bbox(page)
 			
-			xmin -= setup.options.bbox_margin_x
-			ymin -= setup.options.bbox_margin_y
-			xmax += setup.options.bbox_margin_x
-			ymax += setup.options.bbox_margin_y
+			xmin -= setup.options.bbox_margin_L
+			ymin -= setup.options.bbox_margin_T
+			xmax += setup.options.bbox_margin_R
+			ymax += setup.options.bbox_margin_B
 			
 			dx = (xmax - xmin)*self.mag
 			dy = (ymax - ymin)*self.mag
@@ -258,7 +264,7 @@ class SVGGfxDocument:
 			X.append(H+xmax*glyphscale)
 			X.append(H+xmin*glyphscale)
 			Y.append(V-ymax*glyphscale)
-			Y.append(V-ymax*glyphscale + (ymax-ymin)*glyphscale)
+			Y.append(V-ymin*glyphscale)
 
 			"""
 			# blue background for char's bbox (TESTING)
@@ -278,10 +284,6 @@ class SVGGfxDocument:
 			
 			Y.append(self.scale * (v - a + self.oneinch))
 			Y.append(self.scale * (v + self.oneinch))
-			# coord2str(self.scale * (h + self.oneinch)))
-			# coord2str(self.scale * (v - a + self.oneinch)))
-			# coord2str(self.scale * b))
-			# coord2str(self.scale * a))
 
 		# get bbox
 		xmin = min(X)
@@ -306,7 +308,7 @@ class SVGGfxDocument:
 		return xmin, ymin, xmax, ymax
 
 	
-	def save(self, filename, prettyXML=False):
+	def save(self, filename):
 		# create defs
 		defs = self.document.createElement('defs')
 		for fntnum, dvicode in self.id:
@@ -324,7 +326,7 @@ class SVGGfxDocument:
 
 		# save
 		f = open(filename, 'wb')
-		if prettyXML:
+		if setup.options.prettyXML:
 			f.write(self.document.toprettyxml())
 		else:
 			f.write(self.document.toxml())
@@ -455,8 +457,8 @@ class SVGTextDocument(SVGGfxDocument):
 
 		#rof
 	
-	def save(self, filename, prettyXML=False):
-		if prettyXML:
+	def save(self, filename):
+		if setup.options.prettyXML:
 			log.warning("Pretty XML is disabled in text mode")
 		
 		# save
@@ -600,6 +602,11 @@ if __name__ == '__main__':
 					  action="store_true",
 	                  dest="verbose",
 					  default=False)
+	
+	parser.add_option("--always-number",
+					  action="store_true",
+	                  dest="always_number",
+					  default=False)
 
 	(setup.options, args) = parser.parse_args()
 
@@ -634,20 +641,29 @@ if __name__ == '__main__':
 			#  3. BBOX:number,number
 			setup.options.use_bbox = True
 		
-			mx = my = 0.0
+			mT = mB = mL = mR = 0.0
 			if ps.startswith("BBOX:"): # 2. & 3.
-				tmp = ps[5:].split(",", 2)
+				tmp = ps[5:].split(",", 4)
 				if len(tmp) == 1: # BBOX:number
-					mx = my = utils.safe_float(tmp[0])
-				else: # BBOX:number,number
-					mx = utils.safe_float(tmp[0])
-					my = utils.safe_float(tmp[1])
+					mT = mB = mL = mR = abs(utils.safe_float(tmp[0]))
+				elif len(tmp) == 2: # BBOX:number,number
+					mL = mR = abs(utils.safe_float(tmp[0]))
+					mT = mB = abs(utils.safe_float(tmp[1]))
+				elif len(tmp) == 4: # BBOX:number,number,number,number
+					mL = abs(utils.safe_float(tmp[0]))
+					mR = abs(utils.safe_float(tmp[1]))
+					mT = abs(utils.safe_float(tmp[2]))
+					mB = abs(utils.safe_float(tmp[3]))
 
-			setup.options.bbox_margin_x = abs(mx)
-			setup.options.bbox_margin_y = abs(my)
-			log.debug("BBox margins: %0.2f, %0.2f",
-				setup.options.bbox_margin_x,
-				setup.options.bbox_margin_y
+			setup.options.bbox_margin_L = mL
+			setup.options.bbox_margin_R = mR
+			setup.options.bbox_margin_T = mT
+			setup.options.bbox_margin_B = mB
+			log.debug("BBox margins: left=%0.2f, right=%0.2f, top=%0.2f, bottom=%02f",
+				setup.options.bbox_margin_L,
+				setup.options.bbox_margin_R,
+				setup.options.bbox_margin_T,
+				setup.options.bbox_margin_B,
 			)
 				
 		else:
@@ -674,7 +690,8 @@ if __name__ == '__main__':
 		#
 		# 1. Open file
 		#
-		dir, filename  = os.path.split(filename)
+		orig_filename = filename
+		dir, filename = os.path.split(filename)
 		if dir == '': dir = '.'
 		def dvipred(p, f):
 			return f==filename or \
@@ -682,8 +699,12 @@ if __name__ == '__main__':
 			       f==filename + '.DVI' or \
 			       f==filename + '.Dvi'
 
-		filename       = findfile.find_file(dir, dvipred)
-		dvi            = binfile(filename, 'rb')
+		filename = findfile.find_file(dir, dvipred, enterdir=lambda p, l: False)
+		if filename is None:
+			log.info("File '%s' not found, skipping" % orig_filename)
+			continue
+			
+		dvi = binfile(filename, 'rb')
 		log.info("Processing '%s' file", dvi.name) 
 
 		#
@@ -754,16 +775,20 @@ if __name__ == '__main__':
 				svg.new_page()
 				convert_page(dvi, svg)
 
-			svg.save(basename + ".svg", setup.options.prettyXML)
+			svg.save(basename + ".svg")
 		else:
+			n = len(pages)
 			for i, pageno in enumerate(pages):
-				log.info("Procesing page %d (%d of %d)", pageno+1, i+1, len(pages))
+				log.info("Procesing page %d (%d of %d)", pageno+1, i+1, n)
 				dvi.seek(page_offset[pageno])
 				svg = SVGDocument(1.25 * mag, scale, unit_mm, (pw,ph))
 				svg.new_page()
 				convert_page(dvi, svg)
-				svg.save("%s%04d.svg" % (basename, pageno+1), setup.options.prettyXML)
+				if n == 1 and not setup.options.always_number:
+					svg.save(basename + ".svg")
+				else:
+					svg.save("%s%04d.svg" % (basename, pageno+1))
 
-	sys.exit(0)
+	sys.exit()
 
 # vim: ts=4 sw=4
