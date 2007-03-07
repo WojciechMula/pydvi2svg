@@ -11,10 +11,9 @@ News
 
 6.03.2007
 	
-	* Switch ``--paper-size`` accept new keyword ``bbox`` --- bounding box
-	  is calculated and document dimensions are set to these values.
-	  Additionaly you can set margins around bbox to get a frame around
-	  image (see description of this option for details).
+	* Switch ``--paper-size`` accept new keyword ``bbox`` (see description
+	  of this option for details) --- paper size is set to bounding box
+	  of page.
 	  
 	  Sample: `famous Einstein equation <samples/emc2.svg>`_
 	* new option ``--verbose``

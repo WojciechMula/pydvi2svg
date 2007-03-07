@@ -57,8 +57,20 @@ Prerequisites
 
 - Python_ interpreter, version 2.4
 - If you need additional SVG fonts, you will need TeX installation
-  (all its' utilities, fonts, etc.) and free, multiplatform font
-  editor Fontforge_ that is able to save SVG fonts.
+  (all its' utilities, fonts, etc.) and:
+
+  * fnt2meta__ --- pydvi2svg utility to convert Type1 fonts; if you don't
+    need METAFONT, just Type1 fonts this utility should be enough
+  * free, multiplatform font editor Fontforge_ that is able
+    to save SVG fonts (pydvi2svg uses Fontforge to convert Type1
+    fonts)
+  * mftrace__ and autotrace__ or potrace__ --- to convert METAFONT
+    fonts to SVG
+
+__ fnt2meta.c
+__ http://lilypond.org/mftrace/
+__ http://autotrace.sourceforge.net
+__ http://potrace.sourceforge.net
 
 
 Installation
@@ -124,7 +136,7 @@ Program options
 		--pages 7-              # convert all pages starting from 7th
 		--pages -10             # convert pages 1-10
 	
-	(By default all pages are converted).
+	By default all pages are converted.
 
 ``--enc-method`` [list]
 	Choose methods used to determine font encoding:
@@ -144,7 +156,7 @@ Program options
 	  and programs do not perform any action; you have to try proposed
 	  encodings by passing them with ``--enc`` switch
 
-	Default value: cache,tfm
+	Default value: **cache,tfm**
 
 ``--enc`` [list]
 	Override (or set) encoding of selected fonts.  Elements are
@@ -153,26 +165,31 @@ Program options
 	
 		--enc cmr12:ot1,pltt12:pltt
 
-``--no-fontforge`` **(new)**
+``--no-fontforge``
 	Never use Fontforge (even if it is present)
 
-``--no-fnt2meta`` **(new)**
+``--no-fnt2meta``
 	Never use fnt2meta (even if it is present)
 
-``--scale`` [float number=1.0]
+``--scale`` **[non-negative number]**
 	Change default scale of document
 
-``--paper-size`` [name=A4]
+	Default value: **1.0**
 
-	name:
+``--paper-size`` **[value]**
 
-	* page format name, like A4, B3, etc.; see :enwiki:`Paper size|Wikipedia`
+	value:
+
+	* page format name, like A4, B3, etc. (see :enwiki:`Paper
+	  size|Wikipedia`); for example `--paper-size A4``,
+	  ``--paper-size=B5``
 	* string ``query`` --- all known names are printed and program exits
 	* string ``bbox`` --- paper size is set to bounding box of page;
 	  additionaly ``bbox:marginxy`` and ``bbox:marginx,marginy`` is
 	  supported to set margin around bounding box, for example
-	  ``--paper-size=bbox:10``, ``--paper-size:bbox:5,20``
+	  ``--paper-size=bbox:10``, ``--paper-size bbox:5,20``
 
+	Default value: **A4**
 
 ``--single-file``
 	All pages are saved in single file. (By default pages are
@@ -239,7 +256,7 @@ or
 	</font>
 
 (Of course these rules are not fixed and I'm able to change them, but
- have never met SVG fonts with different structure).
+have never met SVG fonts with different structure).
 
 
 I got warning ``missing char``
