@@ -175,7 +175,7 @@ Program options
 	value:
 
 	* page format name, like A4, B3, etc. (see :enwiki:`Paper
-	  size|Wikipedia`); for example `--paper-size A4``,
+	  size|Wikipedia`); for example ``--paper-size A4``,
 	  ``--paper-size=B5``
 	* string ``query`` --- all known names are printed and program exits
 	* string ``bbox`` --- paper size is set to bounding box of page;
@@ -190,6 +190,10 @@ Program options
 	  ``--paper-size=bbox:10,20,30,40``
 
 	Default value: **A4**
+
+``--always-number``
+	Append page number to output name even if **one** page
+	is converted.
 
 ``--single-file``
 	All pages are saved in single file. (By default pages are
@@ -308,7 +312,7 @@ update file ``enc/enc.info`` (and of course drop
 me a line).
 
 
-Licence
+License
 ~~~~~~~
 
 * **Program** is licensed under BSD_ license.
