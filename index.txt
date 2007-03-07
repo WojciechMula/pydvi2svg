@@ -2,12 +2,32 @@
                             pydvi2svg
 ========================================================================
 
-Last update: 6.03.2007
+Last update: 7.03.2007
 
 .. contents:: Contents
 
 News
 ------------------------------------------------------------------------
+
+7.03.2007
+
+	* Better, and I hope more obvious, command line parsing.  Now
+	  output file name or output directory can be set.  For example::
+
+	  	dvi2svg file.dvi                   # output: file.svg 
+		dvi2svg file.dvi test.svg          # output: test.svg
+		dvi2svg file.dvi dir/              # output: dir/file.svg
+		dvi2svg file.dvi dir/test.svg      # output: dir/test.svg
+	
+	* New option ``--always-number`` --- affects on output file name:
+	  without this switch, if just a **single page** is converted output
+	  file has the same name as DVI input, just extension is changed;
+	  if ``--always-number`` is passed, then SVG files has additional
+	  number, like ``file0001.svg``
+
+	* Option ``--paper-size=bbox`` accepts four numbers, for left,
+	  right, top and  bottom margin, i.e.
+	  ``--paper-size=bbox:left,right,top,bottom``
 
 6.03.2007
 	
@@ -33,7 +53,7 @@ News
 
 2.03.2007
 
-	* Improved .PFA/.PFB searching
+	* Improved ``.PFA``/``.PFB`` searching
 	* Another bug fixed
 
 1.03.2007
@@ -43,7 +63,7 @@ News
 
 16.10.2006
 
-	If ``pydvi2svg`` can't find SVG but Type1 fonts (``pfa`` or ``pfb``)
+	If ``pydvi2svg`` can't find SVG but Type1 fonts (``PFA`` or ``PFB``)
 	are available in your TeX installation then **automatically** use
 	FontForge (or fnt2meta) to converts such font.
 	

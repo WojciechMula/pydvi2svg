@@ -122,7 +122,7 @@ Program options
 
 ::
 
-    python dvi2svg.py  [OPTION] file.dvi ...
+    python dvi2svg.py [OPTION] file.dvi ...
 
 
 **Options**:
@@ -165,12 +165,6 @@ Program options
 	
 		--enc cmr12:ot1,pltt12:pltt
 
-``--no-fontforge``
-	Never use Fontforge (even if it is present)
-
-``--no-fnt2meta``
-	Never use fnt2meta (even if it is present)
-
 ``--scale`` **[non-negative number]**
 	Change default scale of document
 
@@ -185,9 +179,15 @@ Program options
 	  ``--paper-size=B5``
 	* string ``query`` --- all known names are printed and program exits
 	* string ``bbox`` --- paper size is set to bounding box of page;
-	  additionaly ``bbox:marginxy`` and ``bbox:marginx,marginy`` is
-	  supported to set margin around bounding box, for example
-	  ``--paper-size=bbox:10``, ``--paper-size bbox:5,20``
+	  additionaly margin around bbox can be set:
+	  
+	  - ``bbox:margin`` --- all margin equal
+	  - ``bbox:marginx,marginy`` --- margin left & right equal marginx,
+	    margin top & bottom equal marginy
+	  - ``bbox:margin_left,margin_right,margin_top,margin_bottom``
+	  
+	  for example ``--paper-size=bbox:10``, ``--paper-size bbox:5,20``,
+	  ``--paper-size=bbox:10,20,30,40``
 
 	Default value: **A4**
 
@@ -195,12 +195,18 @@ Program options
 	All pages are saved in single file. (By default pages are
 	saved in separate files).
 
-``--pretty-xml``
-	"Pretty formatting" of SVG (files become larger, but are easy
-	to read).
+``--no-fontforge``
+	Never use Fontforge (even if it is present)
+
+``--no-fnt2meta``
+	Never use fnt2meta (even if it is present)
 
 ``--verbose``
 	Print all messages.
+
+``--pretty-xml``
+	"Pretty formatting" of SVG (files become larger, but are easy
+	to read).
 
 
 Solving common problems
