@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.22 2007-03-07 16:53:08 wojtek Exp $
+# $Id: dvi2svg.py,v 1.23 2007-03-07 22:46:51 wojtek Exp $
 # 
 # license: BSD
 #
@@ -714,7 +714,13 @@ if __name__ == '__main__':
 		
 	tmp  = filter(bool, map(preprocess, args))
 	args = []
-	for (t1, f1), (t2, f2) in zip(tmp, tmp[1:]):
+	
+	prev = tmp[0]
+	for curr in tmp[1:] + [('dvi', None)]:
+		t2, f2 = curr
+		t1, f1 = prev
+		prev   = curr
+
 		if t1 == 'dvi':
 			if t2 == 'svg':
 				args.append( (f1, f2) )
