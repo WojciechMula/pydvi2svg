@@ -19,6 +19,7 @@ re_comma  = re.compile(r'\s*,\s*')
 re_colon  = re.compile(r'\s*:\s*')
 re_spaces = re.compile(r'\s*')
 re_arrow  = re.compile(r'->|=>|=')
+re_comment = re.compile('\s*%.*\n')
 
 
 def tokenize(string):
@@ -31,7 +32,7 @@ def tokenize(string):
 		m = regexp.match(s.s)
 		if not m:
 			if match_needed:
-				tmp = "%s...\n%s" % (s.s[:20], str(match_needed))
+				tmp = "\n%s...\n%s" % (s.s[:20], str(match_needed))
 				raise ValueError(tmp)
 			else:
 				return None
@@ -42,7 +43,7 @@ def tokenize(string):
 		else:
 			return True
 	
-	def consume_string(string, match_needed=False):
+	def consume_string(string, match_needed=""):
 		try:
 			regexp = s.re_cache[string]
 		except KeyError:
@@ -61,6 +62,9 @@ def tokenize(string):
 
 	while s.s:
 		consume(re_spaces)
+		if consume(re_comment):
+			continue
+		
 		if not s.s:
 			break
 
@@ -78,20 +82,22 @@ def tokenize(string):
 			A = (x, y)
 			consume(re_closingbrace, "you forgot to close brace")
 
+		notNone(A, "expeced string to replace, id of object, rectangle coordinates/dimensions or point coords")
+
 		consume(re_spaces)
-		consume(re_arrow, True)
-		tex = consume(re_quoted_string, True)
+		consume(re_arrow, "=, -> or => required")
+		tex = consume(re_quoted_string, "Expeced string enclosed in quotes")
 
 		position = consume_string('position')
 		px = 0.5
 		py = 0.5
 		if position:
-			if consume(re_colon, True):
+			if consume(re_colon, "expeced colon after keyword 'position'"):
 				px = consume_string('left')   or \
 				     consume_string('right')  or \
 				     consume_string('center') or \
 				     consume(re_number)
-				notNone(px)
+				notNone(px, "expeced number or string 'left', 'right', 'center'")
 				try:
 					px = {'left': 0.0, 'center': 0.5, 'right': 1.0}[px.lower()]
 				except KeyError, AttributeError:
@@ -102,7 +108,7 @@ def tokenize(string):
 				     consume_string('bottom') or \
 				     consume_string('center') or \
 				     consume(re_number)
-				notNone(py)
+				notNone(py, "expeced number or string 'top', 'bottom', 'center' after coma")
 				try:
 					py = {'top': 0.0, 'center': 0.5, 'bottom': 1.0}[py.lower()]
 				except KeyError, AttributeError:
@@ -111,35 +117,34 @@ def tokenize(string):
 
 		settowidth = consume_string('settowidth')
 		fw = None
-		if settowidth and consume(re_colon, True):
+		if settowidth and consume(re_colon, "expeced colon after keyword 'settowidth'"):
 			fw = consume_string('this') or \
 			     consume(re_id) or \
 			     consume(re_number);
-			notNone(fw, "Dupa")
+			notNone(fw, "expeced number, id of object or string 'this'")
 		
 		settoheight = consume_string('settoheight')
 		fh = None
-		if settoheight and consume(re_colon, True):
+		if settoheight and consume(re_colon, "expeced colon after keyword 'settowidth'"):
 			fh = consume_string('this') or \
 			     consume(re_id) or \
 			     consume(re_number);
-			notNone(fh, "Dupa")
+			notNone(fh, "expeced number, id of object or string 'this'")
 	
 		fit = consume_string('fit')
 
 		scale = consume_string('scale')
 		if scale and consume(re_colon, "colon is needed after keyword 'scale'"):
 			scale = consume(re_number, "scale factor needed")
-			
-				
+
 		print A, tex, px, py, fw, fh, fit, scale
 
 
 
 sample = """
 point(10, -.5) = "This is sample text" position:0.2,bottom
-"LaTeX" -> "\\LaTeX" position: left, 0.57 settoheight: this
-"emc2"  -> "$e = mc^2$" settowidth :  #rect02-a
+"LaTeX" -> "\\LaTeX" % position: left, 0.57 settoheight: this
+  %  "emc2"  -> "$e = mc^2$" settowidth :  #rect02-a
   rect  (   10, 5.5, 100, 200.5  ) -> "$\\fract{1}{x^2 + 1}$" position: right, 0.2 fit
 """
 tokenize(sample)
@@ -148,3 +153,5 @@ tokenize(sample)
 for kind, value in tokenize(sample):
 	print "%s: %s" % (kind, value)
 """
+
+# vim: ts=4 sw=4 nowrap
