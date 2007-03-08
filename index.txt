@@ -20,10 +20,7 @@ News
 		dvi2svg file.dvi dir/test.svg      # output: dir/test.svg
 	
 	* New option ``--always-number`` --- affects on output file name:
-	  without this switch, if just a **single page** is converted output
-	  file has the same name as DVI input, just extension is changed;
-	  if ``--always-number`` is passed, then SVG files has additional
-	  number, like ``file0001.svg``
+	  append page number to output name even if **one** page is converted.
 
 	* Option ``--paper-size=bbox`` accepts four numbers, for left,
 	  right, top and  bottom margin, i.e.

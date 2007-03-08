@@ -14,9 +14,9 @@ that puts characters and move magic current point around a page,
 
 There is partial support for ``color.sty`` specials.
 
-Why another convert?  Because programs I've checked---if they worked of
-course---embeded SVG font in the file.  This is not supported by most
-of SVG viewer/editor programs, including Inkscape_ that I use often.
+Why another converter?  Because programs I've checked --- if they worked of
+course --- embeded SVG font in the file.  This is not supported by most
+SVG viewer/editor programs, including Inkscape_ that I use often.
 Because of that ``pydvi2svg`` embeds *glifs* as a paths and simply links
 to them. It works perfectly. Tested with gqview, rsvg, Inkscape,
 Firefox 1.5-2.0 and Opera 9.
@@ -80,7 +80,10 @@ Following archives are needed:
 
 1. `pydvi2svg.tar.bz2 <pydvi2svg.tar.bz2>`_	--- source files
 2. `fonts.tar.bz2 <fonts.tar.bz2>`_			---  *Computer Modern* fonts converted to SVG 
-3. `pydvi2svg-full.tar.bz2 <pydvi2svg-full.tar.bz2>`_ --- both source & fonts
+
+or:
+
+1. `pydvi2svg-full.tar.bz2 <pydvi2svg-full.tar.bz2>`_ --- both source & CM fonts
 
 
 If you have them, then::
@@ -156,7 +159,7 @@ Program options
 	  and programs do not perform any action; you have to try proposed
 	  encodings by passing them with ``--enc`` switch
 
-	Default value: **cache,tfm**
+	Default value: **cache,tfm,afm**
 
 ``--enc`` [list]
 	Override (or set) encoding of selected fonts.  Elements are
