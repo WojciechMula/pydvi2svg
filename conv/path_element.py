@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # SVG path data parser & bbox calculate
-# $Id: path_element.py,v 1.4 2007-03-07 15:05:18 wojtek Exp $
+# $Id: path_element.py,v 1.5 2007-03-08 07:44:14 wojtek Exp $
 # 
 # license: BSD
 #
@@ -13,6 +13,8 @@
 
 # changelog
 """
+ 8.03.2007
+	- bug fixed in 'tokens'
  7.03.2007
 	- function 'tokens' imporovements
 	- function 'iter' renamed to 'path_iter'
@@ -32,15 +34,34 @@ set_C   = set("cC")
 set_A   = set("aA")
 set_commands = set("zZvVhHmMlLtTsSqQcCaA")
 
+class iter2(object):
+	# simple iterator-like class, that support rewind
+	def __init__(self, sequence):
+		self.seq = sequence
+		self.n = len(sequence)
+		self.i = 0
+	
+	def next(self):
+		if self.i == self.n:
+			raise StopIteration
+		v = self.seq[self.i]
+		self.i += 1
+		return v
+	
+	def back(self):
+		if self.i == 0:
+			raise StopIteration
+		self.i -= 1
+
 
 def tokens(d_attribute, tofloat=float):
 	d = str(d_attribute).translate(s_trans)
 
 	# split into list of commands/parameters
 	d = filter(bool, re.split(r_split, d))
-
-	# iterate
-	d = iter(d)
+	
+	# iter
+	d = iter2(d)
 
 	def number():
 		try:
@@ -73,13 +94,17 @@ def tokens(d_attribute, tofloat=float):
 			
 	command = 'undefined'
 	while True:
-		try:
-			tmp = d.next()
+		try: tmp = d.next()
 		except StopIteration:
 			break
 
 		if tmp in set_commands:
 			command = tmp
+		else:
+			# token not a command, get back
+			try: d.back()
+			except StopIteration:
+				raise ValueError("First element in path must be command.")
 		
 		if command in set_Z:
 			yield (command, None)
