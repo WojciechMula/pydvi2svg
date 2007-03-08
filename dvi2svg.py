@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.23 2007-03-07 22:46:51 wojtek Exp $
+# $Id: dvi2svg.py,v 1.24 2007-03-08 22:30:54 wojtek Exp $
 # 
 # license: BSD
 #
@@ -13,6 +13,8 @@
 
 # changelog
 """
+ 8.03.2007
+	- a bit smaller output (+ function strip_0)
  7.03.2007
 	- better command line parsing, now user can set name of
 	  output file or set output directory
@@ -118,18 +120,26 @@ import setup
 from binfile import binfile
 from colors  import is_colorspecial, execute
 
-class SVGGfxDocument:
+class SVGGfxDocument(object):
 	"Outputs glyphs"
 	def __init__(self, mag, scale, unit_mm, page_size):
-		self.mag		= mag		# maginication
+		self.mag		= mag		# magnification
 		self.scale		= scale		# additional scale
 		self.oneinch	= 25.4/unit_mm
 
 		self.id			= set()
 		self.bbox_cache = {}
-		self.scale2str	= lambda x: "%0.5f" % x
-		self.coord2str	= lambda x: "%0.3f" % x
-		
+
+		def strip_0(s):
+			if s.find('.') > -1:
+				s = s.rstrip('0')
+				if s[-1] == '.':
+					return s[:-1]
+			return s
+
+		self.scale2str	= lambda x: strip_0("%0.5f" % x)
+		self.coord2str	= lambda x: strip_0("%0.3f" % x)
+
 		implementation = xml.dom.getDOMImplementation()
 		doctype = implementation.createDocumentType(
 			"svg",
@@ -179,7 +189,7 @@ class SVGGfxDocument:
 		
 		# 0. get bounding box (if needed)
 		if setup.options.use_bbox:
-			xmin, ymin, xmax, ymax = self.__get_page_bbox(page)
+			xmin, ymin, xmax, ymax = self._get_page_bbox(page)
 			
 			xmin -= setup.options.bbox_margin_L
 			ymin -= setup.options.bbox_margin_T
@@ -240,11 +250,11 @@ class SVGGfxDocument:
 					c.setAttributeNS('xlink', 'xlink:href', '#'+idstring)
 					c.setAttribute('x', coord2str(H/glyphscale))
 					if color:
-						c.setAttribute('style', 'fill:%s' % color)
+						c.setAttribute('fill', color)
 
 		#rof
 	
-	def __get_page_bbox(self, page):
+	def _get_page_bbox(self, page):
 		"Returns bbox of chars (self.chars) and rules (self.reules)."
 
 		import path_element
