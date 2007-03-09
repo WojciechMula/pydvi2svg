@@ -3,6 +3,13 @@
 # keep temporary file
 # remove/hide
 
+"""
+w³±cznie parsera
+wyszukiwanie po ID
+wyrównywanie
+rozci±ganie
+"""
+
 import setup
 import utils
 import dvi2svg
@@ -39,7 +46,6 @@ class EquationsManager(dvi2svg.SVGGfxDocument):
 
 		x = float(self.object.getAttribute('x'))
 		y = float(self.object.getAttribute('y'))
-#		print x, y
 
 		page = new('g')
 
@@ -127,11 +133,6 @@ class EquationsManager(dvi2svg.SVGGfxDocument):
 	
 
 setup.options.use_bbox = True
-setup.options.bbox_margin_L = 0.0
-setup.options.bbox_margin_T = 0.0
-setup.options.bbox_margin_R = 0.0
-setup.options.bbox_margin_B = 0.0
-setup.options.scale = 1.5
 setup.options.prettyXML = True
 
 setup.options.enc_methods = utils.parse_enc_methods("c,t")
