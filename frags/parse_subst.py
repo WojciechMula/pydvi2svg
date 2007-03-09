@@ -1,157 +1,264 @@
+# changelog
+"""
+ 9.03.2007
+	- class approach:
+	  + Tokenizer (base class)
+	  + FragsTokenizer (specialized class)
+	  + parser
+ 8.03.2007
+	- first version
+"""
+
 """
 "string"|#id|rect(x,y,w,h)|point(x,y) -> "TeX"
 	position: x|center/c|left/l|right/r, y|center/c|top/t|bottom/b|
+	scale: number
 	settowidth: number|rectid|this
 	settoheight: number|rectid|this
 	fit
-	scale: number
 """
 
 import re
 
+re_spaces = re.compile(r'(\s*)')
 re_quoted_string = re.compile(r'\s*"((?:\\"|[^"])*)"')
-re_id     = re.compile(r'\s*(#[a-zA-Z0-9_-]+)')
 re_number = re.compile(r'\s*([+-]?\d*\.\d+|[+-]?\d+\.\d*|[-+]?\d+)')
-re_rect   = re.compile(r'\s*rect\s*\(', re.IGNORECASE)
-re_point  = re.compile(r'\s*point\s*\(', re.IGNORECASE)
-re_closingbrace  = re.compile(r'\s*\)')
 re_comma  = re.compile(r'\s*,\s*')
-re_colon  = re.compile(r'\s*:\s*')
-re_spaces = re.compile(r'\s*')
-re_arrow  = re.compile(r'->|=>|=')
+
+re_id		= re.compile(r'\s*(#[a-zA-Z0-9._:-]+)')
+re_fit		= re.compile(r'\s*fit(\s+|$)')
+re_arrow	= re.compile(r'\s*(?:->|=>|=)')
 re_comment = re.compile('\s*%.*\n')
+re_openingbrace = re.compile(r'\s*\(')
+re_closingbrace = re.compile(r'\s*\)')
 
+class SyntaxError(ValueError):
+	pass
 
-def tokenize(string):
-	class Dummy: pass
-	s   = Dummy()
-	s.s = string
-	s.re_cache = {}
-
-	def consume(regexp, match_needed=""):
-		m = regexp.match(s.s)
-		if not m:
-			if match_needed:
-				tmp = "\n%s...\n%s" % (s.s[:20], str(match_needed))
-				raise ValueError(tmp)
+class Tokenizer(object):
+	def __init__(self, string):
+		self.str  = string
+		self.last = ""
+		self.last_count = 30
+		self._re_cache = {}
+	
+	def __nonzero__(self):
+		return len(self.str) > 0
+	
+	def consume(self, regexp, err_msg=""):
+		match = regexp.match(self.str)
+		if not match:
+			if err_msg:
+				err_msg = "\n%s...\n%s" % (self.str[:20], str(err_msg))
+				raise SyntaxError(err_msg)
 			else:
 				return None
 
-		s.s = s.s[m.end():]
-		if m.groups():
-			return m.groups()[0]
-		else:
+		self.last = (self.last + self.str[:match.end()])[-self.last_count:]
+		self.str  = self.str[match.end():]
+		try:
+			return match.groups()[0]
+		except IndexError:
 			return True
 	
-	def consume_string(string, match_needed=""):
+	def literal(self, string, err_msg=""):
 		try:
-			regexp = s.re_cache[string]
+			regexp = self._re_cache[string]
 		except KeyError:
 			regexp = re.compile('('+string+')', re.IGNORECASE)
-			s.re_cache[string] = regexp
-		
-		consume(re_spaces)
-		return consume(regexp, match_needed)
+			self._re_cache[string] = regexp
 
+		return self.consume(regexp, err_msg)
+
+
+class FragsTokenizer(Tokenizer):
+	def eatspaces(self):
+		return len(self.consume(re_spaces))
 	
-	def notNone(value, info="None not accpeted!"):
-		if value is None:
-			raise ValueError(info)
+	def eatcomment(self):
+		return self.consume(re_comment)
+	
+	def number(self, err_msg=""):
+		v = self.consume(re_number, err_msg)
+		try:
+			return float(v)
+		except ValueError:
+			raise SyntaxError("Invalid number '%s'" % s)
+	
+	def string(self, err_msg=""):
+		return self.consume(re_quoted_string, err_msg)
+	
+	def id(self, err_msg=""):
+		return self.consume(re_id, err_msg)
+	
+	def comma(self, err_msg=""):
+		return self.consume(re_comma, err_msg)
+	
+	def literal(self, string):
+		self.eatspaces()
+		return super(FragsTokenizer, self).literal(string)
+	
+	def keyword(self, keyword):
+		if self.literal(keyword + "\s*:\s*"):
+			return True
 		else:
-			return value
+			return None
 
-	while s.s:
-		consume(re_spaces)
-		if consume(re_comment):
-			continue
+	def error(self, err_msg=""):
+		# XXX: I don't like it
+		s1 = self.last.replace('\n', r'\n').replace('\t', ' ')
+		s2 = self.str[:self.last_count].replace('\n', r'\n').replace('\t', ' ')
+		s3 = " " * len(s1)
+		s4 = "^" * min(len(s2), self.last_count/2)
+
+		if err_msg:
+			err_msg = "Syntax error: " + err_msg
+		else:
+			err_msg = "Syntax error"
+
+		err_msg = ''.join(["\n", s1, s2, "\n", s3, s4, "\n", err_msg])
+		raise SyntaxError(err_msg)
+
+
+def parse(string):
+
+	tokens = FragsTokenizer(string)
+
+	def get_target():
+		target = tokens.string()
+		if target: return ('string', target)
 		
-		if not s.s:
+		target = tokens.id()
+		if target: return ('id', target)
+
+		if tokens.literal('rect'):
+			tokens.consume(re_openingbrace, "opening brace needed")
+			x = tokens.number("number 'x'"); tokens.comma("coma expeced")
+			y = tokens.number("number 'y'"); tokens.comma("coma expeced")
+			w = tokens.number("number 'widht'" ); tokens.comma("coma expeced")
+			h = tokens.number("number 'height'")
+			tokens.consume(re_closingbrace, "closing brace needed")
+			return ('rect', (x, y, w, h))
+		
+		if tokens.literal('point'):
+			tokens.consume(re_openingbrace, "opening brace needed")
+			x = tokens.number("number 'x'"); tokens.comma("coma expeced")
+			y = tokens.number("number 'y'");
+			tokens.consume(re_closingbrace, "closing brace needed")
+			return ('point', (x, y))
+		tokens.error("literal string, id, rect definition or point location required")
+
+
+	def get_px():
+		px = tokens.number()
+		if not px:
+			px = tokens.literal('left')   or tokens.literal('l') or \
+				 tokens.literal('right')  or tokens.literal('r') or \
+				 tokens.literal('center') or tokens.literal('c')
+			if px is None:
+				raise tokens.error("Number or string 'left', 'right' or 'center' required")
+			return {'left':0.0, 'l':0.0, 'right':1.0, 'r':1.0, 'center':0.5, 'c':0.5}[px]
+		else:
+			return px
+	
+	def get_py():
+		py = tokens.number()
+		if not py:
+			py = tokens.literal('top')    or tokens.literal('t') or \
+				 tokens.literal('bottom') or tokens.literal('b') or \
+				 tokens.literal('center') or tokens.literal('c')
+			if py is None:
+				tokens.error("Number or string 'top', 'bottom' or 'center' required")
+			return {'top':0.0, 't':0.0, 'bottom':1.0, 'b':1.0, 'center':0.5, 'c':0.5}[py]
+		else:
+			return py
+	
+	def get_settoxxx():
+		v = tokens.consume(re_number)
+		if v is None:
+			v = tokens.id()
+			if v: return v
+
+			v = tokens.literal('this')
+			if v: return 'this'
+		else:
+			return v
+
+		token.error("Number, object id or string 'this' required")
+
+
+	while tokens:
+		tokens.eatspaces()
+		if tokens.eatcomment(): continue
+		
+		if not tokens:
 			break
 
-		A = consume(re_quoted_string) or consume(re_id)
-		if A is None and consume(re_rect):
-			x = consume(re_number, "number 'x'"); consume(re_comma, "comma expeced")
-			y = consume(re_number, "number 'y'"); consume(re_comma, "comma expeced")
-			w = consume(re_number, "number 'width'"); consume(re_comma, "comma expeced")
-			h = consume(re_number, "number 'height'")
-			A = (x, y, w, h)
-			consume(re_closingbrace, "you forgot to close brace")
-		if A is None and consume(re_point):
-			x = consume(re_number, "number 'x'"); consume(re_comma, "comma expeced")
-			y = consume(re_number, "number 'y'")
-			A = (x, y)
-			consume(re_closingbrace, "you forgot to close brace")
+		# string/id/rect/point	
+		target = get_target()
 
-		notNone(A, "expeced string to replace, id of object, rectangle coordinates/dimensions or point coords")
+		# =>
+		tokens.consume(re_arrow, "=, -> or => required")
 
-		consume(re_spaces)
-		consume(re_arrow, "=, -> or => required")
-		tex = consume(re_quoted_string, "Expeced string enclosed in quotes")
+		# replacement -- (La)TeX expression
+		tex = tokens.string("Expeced quoted TeX expression")
 
-		position = consume_string('position')
+		# position: px, py
 		px = 0.5
 		py = 0.5
-		if position:
-			if consume(re_colon, "expeced colon after keyword 'position'"):
-				px = consume_string('left')   or \
-				     consume_string('right')  or \
-				     consume_string('center') or \
-				     consume(re_number)
-				notNone(px, "expeced number or string 'left', 'right', 'center'")
-				try:
-					px = {'left': 0.0, 'center': 0.5, 'right': 1.0}[px.lower()]
-				except KeyError, AttributeError:
-					pass
-
-			if consume(re_comma):
-				py = consume_string('top')    or \
-				     consume_string('bottom') or \
-				     consume_string('center') or \
-				     consume(re_number)
-				notNone(py, "expeced number or string 'top', 'bottom', 'center' after coma")
-				try:
-					py = {'top': 0.0, 'center': 0.5, 'bottom': 1.0}[py.lower()]
-				except KeyError, AttributeError:
-					pass
-
-
-		settowidth = consume_string('settowidth')
-		fw = None
-		if settowidth and consume(re_colon, "expeced colon after keyword 'settowidth'"):
-			fw = consume_string('this') or \
-			     consume(re_id) or \
-			     consume(re_number);
-			notNone(fw, "expeced number, id of object or string 'this'")
-		
-		settoheight = consume_string('settoheight')
-		fh = None
-		if settoheight and consume(re_colon, "expeced colon after keyword 'settowidth'"):
-			fh = consume_string('this') or \
-			     consume(re_id) or \
-			     consume(re_number);
-			notNone(fh, "expeced number, id of object or string 'this'")
+		if tokens.keyword('position'):
+			px = get_px()
+			if tokens.comma():
+				py = get_py()
 	
-		fit = consume_string('fit')
-
-		scale = consume_string('scale')
-		if scale and consume(re_colon, "colon is needed after keyword 'scale'"):
-			scale = consume(re_number, "scale factor needed")
-
-		print A, tex, px, py, fw, fh, fit, scale
+		# scale: number
+		if tokens.keyword('scale'):
+			scale = tokens.number("scale factor needed")
+		else:
+			scale = 1.0
 
 
+		# settowidth: number|id|this
+		if tokens.keyword('settowidth') or tokens.keyword('scaletowidth'):
+			settowidth = get_settoxxx()
+			scale = 1.0
+		else:
+			settowidth = None
+		
+		# settoheight: number|id|this
+		if tokens.keyword('settoheight') or tokens.keyword('scaletoheight'):
+			settoheight = get_settoxxx()
+			scale = 1.0
+		else:
+			settoheight = None
+		
+		# fit
+		if tokens.consume(re_fit):
+			settowidth = settoheight = None
+			scale = 1.0
+			fit = True
+		else:
+			fit = False
+		
+		# final touches: if we refer to point or text, these
+		# objects doesn't have width/heigt, so settowidth,
+		# settoheight & fit are disabled
+		if target[0] in ['string', 'point']:
+			settowidth = settoheight = None
+			fit = False
 
-sample = """
-point(10, -.5) = "This is sample text" position:0.2,bottom
-"LaTeX" -> "\\LaTeX" % position: left, 0.57 settoheight: this
-  %  "emc2"  -> "$e = mc^2$" settowidth :  #rect02-a
-  rect  (   10, 5.5, 100, 200.5  ) -> "$\\fract{1}{x^2 + 1}$" position: right, 0.2 fit
-"""
-tokenize(sample)
+		#print (target, tex, px, py, scale, settowidth, settoheight, fit)
+		yield (target, tex, px, py, scale, settowidth, settoheight, fit)
 
-"""
-for kind, value in tokenize(sample):
-	print "%s: %s" % (kind, value)
-"""
+
+if __name__ == '__main__':
+	sample = """
+	point(10, -.5) = "This is sample text" position:0.2,bottom
+	"LaTeX" -> "\\LaTeX" % position: left, 0.57 settoheight: this
+	  %  "emc2"  -> "$e = mc^2$" settowidth :  #rect02-a
+	  rect  (   10, 5.5, 100, 200.5  ) -> "$\\fract{1}{x^2 + 1}$" position: right, 0.2 fit
+	"""
+	for item in parse(sample):
+		print item	
 
 # vim: ts=4 sw=4 nowrap
