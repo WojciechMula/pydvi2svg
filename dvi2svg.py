@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.24 2007-03-08 22:30:54 wojtek Exp $
+# $Id: dvi2svg.py,v 1.25 2007-03-09 23:57:21 wojtek Exp $
 # 
 # license: BSD
 #
@@ -137,8 +137,8 @@ class SVGGfxDocument(object):
 					return s[:-1]
 			return s
 
-		self.scale2str	= lambda x: strip_0("%0.5f" % x)
-		self.coord2str	= lambda x: strip_0("%0.3f" % x)
+		self.scale2str = self.s2s = lambda x: strip_0("%0.5f" % x)
+		self.coord2str = self.c2s = lambda x: strip_0("%0.3f" % x)
 
 		implementation = xml.dom.getDOMImplementation()
 		doctype = implementation.createDocumentType(
@@ -254,7 +254,7 @@ class SVGGfxDocument(object):
 
 		#rof
 	
-	def _get_page_bbox(self, page):
+	def _get_page_bbox(self, page=None):
 		"Returns bbox of chars (self.chars) and rules (self.reules)."
 
 		import path_element
