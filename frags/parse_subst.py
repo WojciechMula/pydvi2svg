@@ -69,6 +69,22 @@ class Tokenizer(object):
 			self._re_cache[string] = regexp
 
 		return self.consume(regexp, err_msg)
+	
+	def error(self, err_msg=""):
+		# XXX: I don't like it
+		s1 = self.last.replace('\n', r'\n').replace('\t', ' ')
+		s2 = self.str[:self.last_count].replace('\n', r'\n').replace('\t', ' ')
+		s3 = " " * len(s1)
+		s4 = "^" * min(len(s2), self.last_count/2)
+
+		if err_msg:
+			err_msg = "Syntax error: " + err_msg
+		else:
+			err_msg = "Syntax error"
+
+		err_msg = ''.join(["\n", s1, s2, "\n", s3, s4, "\n", err_msg])
+		raise SyntaxError(err_msg)
+
 
 
 class FragsTokenizer(Tokenizer):
@@ -103,21 +119,6 @@ class FragsTokenizer(Tokenizer):
 			return True
 		else:
 			return None
-
-	def error(self, err_msg=""):
-		# XXX: I don't like it
-		s1 = self.last.replace('\n', r'\n').replace('\t', ' ')
-		s2 = self.str[:self.last_count].replace('\n', r'\n').replace('\t', ' ')
-		s3 = " " * len(s1)
-		s4 = "^" * min(len(s2), self.last_count/2)
-
-		if err_msg:
-			err_msg = "Syntax error: " + err_msg
-		else:
-			err_msg = "Syntax error"
-
-		err_msg = ''.join(["\n", s1, s2, "\n", s3, s4, "\n", err_msg])
-		raise SyntaxError(err_msg)
 
 
 def parse(string):
