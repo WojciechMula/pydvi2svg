@@ -1,5 +1,5 @@
 import optparse
-import utils
+import conv.utils
 
 def parse_enc_methods(option, opt_str, value, parser):
 	if len(parser.rargs) == 0:

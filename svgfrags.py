@@ -18,20 +18,19 @@
 	- early tests
 """
 
-import setup
-import utils
-import dvi2svg
-import fontsel
-from binfile import binfile
-import dviparser
-import frags
-
-import xml.dom.minidom
-
-import optparse
 import logging
 import sys
 import os
+import xml.dom.minidom
+
+import setup
+import frags
+import dvi2svg
+
+from conv import utils
+from conv import fontsel
+from conv import dviparser
+from conv.binfile import binfile
 
 
 logging.basicConfig(level=logging.INFO)
