@@ -1,17 +1,31 @@
 # changelog
 """
+10.03.2007
+	+ remove_file
+	+ Dict
+	+ CSS_value
  9.03.2007
 	+ safe_float
 	+ get_bbox/get_width/get_height
 	+ collect_Id
 """
 
+import os
+
 def safe_float(string, default=0.0):
 	try:
 		return float(string)
 	except ValueError:
 		return default
+	
 
+def remove_file(filename):
+	try:
+		os.remove(filename)
+	except OSError, error:
+		if error.errno != 2: # 2 is file not found (we pass it silently)
+			raise error
+		
 
 def get_bbox(object):
 	"Returns BBox of given object (rect/circle/ellipse are supported)"
@@ -72,5 +86,25 @@ def collect_Id(XML, d={}):
 		except AttributeError: # no hasAttr
 			pass
 		collect_Id(object, d)
+
+
+def CSS_value(object, property):
+	css_string = object.getAttribute('style')
+	for pair in css_string.split(';'):
+		prop, value = pair.split(':', 2)
+		if prop.strip() == property:
+			return value.strip()
+
+
+class Dict(dict):
+	"Ocaml-like dict"
+	def __setitem__(self, key, value):
+		try:
+			L = super(Dict, self).__getitem__(key)
+		except KeyError:
+			L = []
+			super(Dict, self).__setitem__(key, L)
+
+		L.append(value)
 
 # vim: ts=4 sw=4 noexpandtab nowrap
