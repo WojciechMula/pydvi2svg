@@ -101,10 +101,10 @@ as follow::
 
 	pydvi2svg
 	 |
-	 +- cache (empty dir)
-	 |
-	 +- enc
-	 |
+	 +- cache           - empty dir
+	 +- conv            - dvi2svg program files
+	 +- frags           - SVGfrags program files
+	 +- enc             - set of *.enc files
 	 +- fonts
 	     |
 	     +- cm
