@@ -1,5 +1,7 @@
 # changelog
 """
+10.03.2007
+	+ margins property
  9.03.2007
 	- class approach:
 	  + Tokenizer (base class)
@@ -16,6 +18,7 @@
 	settowidth: number|rectid|this
 	settoheight: number|rectid|this
 	fit
+	margin: number,[number,[number,number]]
 """
 
 import re
@@ -49,8 +52,8 @@ class Tokenizer(object):
 		match = regexp.match(self.str)
 		if not match:
 			if err_msg:
-				err_msg = "\n%s...\n%s" % (self.str[:20], str(err_msg))
-				raise SyntaxError(err_msg)
+#				err_msg = "\n%s...\n%s" % (self.str[:20], str(err_msg))
+				self.error(err_msg)
 			else:
 				return None
 
@@ -86,7 +89,6 @@ class Tokenizer(object):
 		raise SyntaxError(err_msg)
 
 
-
 class FragsTokenizer(Tokenizer):
 	def eatspaces(self):
 		return len(self.consume(re_spaces))
@@ -99,7 +101,7 @@ class FragsTokenizer(Tokenizer):
 		try:
 			return float(v)
 		except ValueError:
-			raise SyntaxError("Invalid number '%s'" % s)
+			self.error("Invalid number '%s'" % s)
 	
 	def string(self, err_msg=""):
 		return self.consume(re_quoted_string, err_msg)
@@ -157,7 +159,7 @@ def parse(string):
 				 tokens.literal('right')  or tokens.literal('r') or \
 				 tokens.literal('center') or tokens.literal('c')
 			if px is None:
-				raise tokens.error("Number or string 'left', 'right' or 'center' required")
+				tokens.error("Number or string 'left', 'right' or 'center' required")
 			return {'left':0.0, 'l':0.0, 'right':1.0, 'r':1.0, 'center':0.5, 'c':0.5}[px]
 		else:
 			return px
@@ -186,6 +188,23 @@ def parse(string):
 			return v
 
 		token.error("Number, object id or string 'this' required")
+	
+	def get_margins():
+		if tokens.keyword('margin'):
+			l = r = t = b = tokens.number()
+			if tokens.comma():
+				t = b = tokens.number('top/bottom margin required')
+			else:
+				return (l, r, t, b)
+
+			if tokens.comma():
+				r = t
+				t = tokens.number('top margin required');  tokens.comma('comma expeced')
+				b = tokens.number('bottom margin required')
+
+			return (l, r, t, b)
+		else:
+			return (0.0, 0.0, 0.0, 0.0)
 
 
 	while tokens:
@@ -203,6 +222,11 @@ def parse(string):
 
 		# replacement -- (La)TeX expression
 		tex = tokens.string("Expeced quoted TeX expression")
+		
+		# margin: m
+		# margin: mx,my
+		# margin: ml,mr,mt,mb
+		margins = get_margins()
 
 		# position: px, py
 		px = 0.5
@@ -232,7 +256,8 @@ def parse(string):
 			scale = 1.0
 		else:
 			settoheight = None
-		
+	
+
 		# fit
 		if tokens.consume(re_fit):
 			settowidth = settoheight = None
@@ -249,7 +274,7 @@ def parse(string):
 			fit = False
 
 		#print (target, tex, px, py, scale, settowidth, settoheight, fit)
-		yield (target, tex, px, py, scale, settowidth, settoheight, fit)
+		yield (target, tex, px, py, margins, scale, settowidth, settoheight, fit)
 
 
 if __name__ == '__main__':
