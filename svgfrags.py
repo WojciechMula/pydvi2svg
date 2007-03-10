@@ -1,9 +1,15 @@
 # SVGfrags
 #
-# TODO: options parse, add option to hack, safe remove
-# id based on file timestamp (to reasume purposes)
+# TODO:
+# * options parse, add option to hack,
+# * colors inherit
 
 """
+10.03.2007
+	- group by TeX expression
+	- id based on file timestamp & string hash (to reasume purposes)
+	- keep old DVI & TeX fles
+	- EquationsManager updated (SVGGfxDocument was changed)
  9.03.2007
 	- parser
 	- clean up
@@ -39,21 +45,25 @@ class EquationsManager(dvi2svg.SVGGfxDocument):
 	def new_page(self):
 		self.chars = []
 		self.rules = []
-		self.equation = None
+		self.lastpage = None
+		self.lastbbox = None
 		pass
 
 	def eop(self):
-		new = self.document.createElement
 		scale2str = self.scale2str
 		coord2str = self.coord2str
 
-		element = new('g')
-		xmin, ymin, xmax, ymax = self._get_page_bbox()
-		self.equation = (element, xmin, ymin, xmax, ymax)
+		g = self.document.createElement('g')
+		self.lastpage = g
+		self.lastbbox = self.get_page_bbox()
+
+		for element in self.flush_rules() + self.flush_chars():
+			g.appendChild(element)
+
 
 		# (TESTING)
 		"""
-		r = new('rect')
+		r = self.document.createElement('rect')
 		r.setAttribute('x', str(xmin))
 		r.setAttribute('y', str(ymin))
 		r.setAttribute('width', str(xmax - xmin))
@@ -62,53 +72,20 @@ class EquationsManager(dvi2svg.SVGGfxDocument):
 		r.setAttribute('stroke', 'red')
 		element.appendChild(r)
 		"""
-
-		# 1. make rules (i.e. filled rectangles)
-		for (h,v, a, b, color) in self.rules:
-			rect = new('rect')
-			rect.setAttribute('x',      coord2str(self.scale * (h + self.oneinch)))
-			rect.setAttribute('y',      coord2str(self.scale * (v - a + self.oneinch)))
-			rect.setAttribute('width',  coord2str(self.scale * b))
-			rect.setAttribute('height', coord2str(self.scale * a))
-			if color:
-				rect.setAttribute('fill', color)
-
-			element.appendChild(rect)
-
-		# 2. process chars
-		from utils import group_elements as group
-
-		# (fntnum, dvicode, next, H, V, glyphscale, color)
-
-		# group chars with same glyphscale
-		byglyphscale = group(self.chars, value=lambda x: x[5])
-		for (glyphscale, chars2) in byglyphscale:
-			g = new('g')
-			g.setAttribute('transform', 'scale(%s,%s)' % (scale2str(glyphscale), scale2str(-glyphscale) ))
-			element.appendChild(g)
-
-			# then group by V
-			byV = group(chars2, value=lambda x: x[4])
-			for (V, chars3) in byV:
-				g1 = new('g')
-				g1.setAttribute('transform', 'translate(0,%s)' % coord2str(-V/glyphscale))
-				g.appendChild(g1)
-
-				for char in chars3:
-					c = new('use')
-					g1.appendChild(c)
-
-					H        = char[3]
-					fntnum   = char[0]
-					dvicode  = char[1]
-					color    = char[6]
-					idstring = "%02x%d" % (dvicode, fntnum)
-
-					c.setAttributeNS('xlink', 'xlink:href', '#'+idstring)
-					c.setAttribute('x', coord2str(H/glyphscale))
-					if color:
-						c.setAttribute('style', 'fill:%s' % color)
 		#for
+	
+	def save(self, filename):
+		defs = self.document.getElementsByTagName('defs')[0]
+		for element in self.flush_glyphs():
+			defs.appendChild(element)
+
+		# save file
+		f = open(filename, 'wb')
+		if setup.options.prettyXML:
+			f.write(self.document.toprettyxml())
+		else:
+			f.write(self.document.toxml())
+		f.close()
 
 
 setup.options.use_bbox = True
@@ -117,7 +94,9 @@ setup.options.enc_methods = utils.parse_enc_methods("c,t")
 
 # SVGfrags options
 setup.options.frags_strip	= True
-setup.options.frags_keeptex	= True
+setup.options.frags_keeptex	= False
+setup.options.frags_keepdvi	= True
+setup.options.frags_keepolderfiles = False
 setup.options.frags_removetext = True
 setup.options.frags_hideobject = True
 
@@ -186,20 +165,25 @@ if __name__ == '__main__':
 	#for
 
 	# 2. Load & parse replace pairs
+	input = open(input_txt, 'r').read()
+
 	from frags.parser import parse
-	repl_defs = [] # valid defs
-	for item in parse(open(input_txt, 'r').read()):
-		# (target, tex, px, py, scale, stw, sth, fit) = item
-		kind, value = item[0] # target
+	repl_defs  = frags.Dict() # valid defs
+	text_nodes = set()        # text nodes to remove/hide
+	for item in parse(input):
+		(target, tex, px, py, scale, stw, sth, fit) = item
+		kind, value = target
 
 		if kind == 'string':
 			if setup.options.frags_strip:
 				value = value.strip()
 				item  = ((kind, value), ) + item[1:]
 
-			if value in text_objects:
-				repl_defs.append(item)
-			else:
+			try:
+				for node in text_objects[value]:
+					text_nodes.add(node)
+					repl_defs[tex] = ((kind, node), ) + item[1:]
+			except KeyError:
 				log.warning("String '%s' doesn't found in SVG, skipping repl", value)
 
 		elif kind == 'id':
@@ -207,30 +191,31 @@ if __name__ == '__main__':
 			if object:
 				if object.nodeName in ['text', 'rect', 'ellipse', 'circle']:
 					# "forget" id, save object
-					item = ((kind, object), ) + item[1:]
-					repl_defs.append(item)
+					repl_defs[tex] = ((kind, object), ) + item[1:]
 				else:
 					log.warning("Object with id=%s is not text, rect, ellipse nor circle - skipping repl", value)
 			else:
 				log.warning("Object with id=%s doesn't found in SVG, skipping repl", value)
 
 		else: # point, rect -- no checks needed
-			repl_defs.append(item)
+			repl_defs[tex] = item
 
 
-	if True:
+	# make tmp name based on hash input & timestamp of input_txt file
+	tmp_filename = "svgfrags-%08x-%08x" % (input.__hash__(), os.path.getmtime(input_txt))
+	if not os.path.exists(tmp_filename + ".dvi"):
+
 		# 3. prepare LaTeX source
 		tmp_lines = [
 			'\\documentclass{article}',
 			'\\pagestyle{empty}'
 			'\\begin{document}',
 		]
-		for item in repl_defs:
-			tmp_lines.append(item[1])	# each TeX expression at new page
+		for tex in repl_defs:
+			tmp_lines.append(tex)	# each TeX expression at new page
 			tmp_lines.append("\\newpage")
 
 		# 4. write & compile TeX source
-		tmp_filename = "%08x-tmp" % os.getpid()
 		tmp_lines.append("\end{document}")
 
 		tmp = open(tmp_filename + '.tex', 'w')
@@ -239,17 +224,11 @@ if __name__ == '__main__':
 		tmp.close()
 
 		os.system("latex %s.tex > /dev/null" % tmp_filename)
-
-		# 5. clean -- remove tmp.tex, tmp.aux, tmp.log
-		if setup.options.frags_keeptex:
-			for ext in ['aux', 'log']:
-				os.remove('%s.%s' % (tmp_filename, ext))
-		else:
-			for ext in ['aux', 'log', 'tex']:
-				os.remove('%s.%s' % (tmp_filename, ext))
+	else:
+		log.info("File not changed, used existing DVI file (%s)", tmp_filename)
 
 
-	# 6. Load DVI
+	# 5. Load DVI
 	dvi = binfile(tmp_filename + ".dvi", 'rb')
 	comment, (num, den, mag, u, l), page_offset, fonts = dviparser.dviinfo(dvi)
 	unit_mm = num/(den*10000.0)
@@ -257,7 +236,7 @@ if __name__ == '__main__':
 	mag   = mag/1000.0
 
 
-	# 7. Preload fonts used in DVI & other stuff
+	# 6. Preload fonts used in DVI & other stuff
 	fontsel.preload()
 	missing = []
 	for k in fonts:
@@ -274,64 +253,66 @@ if __name__ == '__main__':
 		log.error("There were some unavailable fonts, skipping file '%s'; list of missing fonts: %s" % (dvi.name, ", ".join("%d=%s" % kf for kf in missing)))
 		sys.exit(1)
 
-	# 8. Substitute
+	# 7. Substitute
 	eq_id_n = 0
 
 	SVG = EquationsManager(XML, 1.25 * mag, scale, unit_mm)
-	for pageno, item in enumerate(repl_defs):
+	for pageno, items in enumerate(repl_defs.values()):
 		dvi.seek(page_offset[pageno])
 		SVG.new_page()
 		dvi2svg.convert_page(dvi, SVG)
-		assert SVG.equation is not None, "Fatal error!"
+		assert SVG.lastpage is not None, "Fatal error!"
+		assert SVG.lastbbox is not None, "Fatal error!"
+		(xmin, ymin, xmax, ymax) = SVG.lastbbox
 
-		(equation, xmin, ymin, xmax, ymax) = SVG.equation
-		((kind, value), tex, px, py, scale, settowidth, settoheight, fit) = item
+		# there are more then one text object, so
+		# we have to **define** TeX object, and
+		# reference to it, by <use>
+		if len(items) > 1:
+			eq_id    = 'svgfrags-%x' % eq_id_n
+			eq_id_n += 1
+			SVG.lastpage.setAttribute('id', eq_id)
+			XML.getElementsByTagName('defs')[0].appendChild(SVG.lastpage)
+		else:
+			equation = SVG.lastpage
+			eq_id = None
 
-		def put_equation(x, y, sx, sy=None):
+		for item in items:
+			((kind, value), tex, px, py, scale, settowidth, settoheight, fit) = item
 
-			# calculate desired point in equation BBox
-			xo = xmin + (xmax - xmin)*px
-			yo = ymin + (ymax - ymin)*py
-
-			# move (xo,yo) to (x,y)
-			if sy is None: # sx == sy
-				equation.setAttribute(
-					'transform',
-					('translate(%s,%s)' % (SVG.c2s(x), SVG.c2s(y))) + \
-					('scale(%s)'        %  SVG.s2s(sx)) + \
-					('translate(%s,%s)' % (SVG.c2s(-xo), SVG.c2s(-yo)))
-				)
-			else:
-				equation.setAttribute(
-					'transform',
-					('translate(%s,%s)' % (SVG.c2s(x), SVG.c2s(y))) + \
-					('scale(%s,%s)'     % (SVG.s2s(sx), SVG.s2s(sy))) + \
-					('translate(%s,%s)' % (SVG.c2s(-xo), SVG.c2s(-yo)))
-				)
-			return equation
-
-
-		# string
-		if kind == 'string':
-			log.info("String '%s' is processing", value)
-
-
-			# there is more then one text object, so
-			# we have to **define** TeX object, and
-			# reference to it, by <use>
-			if len(text_objects[value]) > 1:
-				eq_id    = 'svgfrags-%x' % eq_id_n
-				eq_id_n += 1
-				object = equation
-				object.setAttribute('id', eq_id)
-				XML.getElementsByTagName('defs')[0].appendChild(object)
-
-			for object in text_objects[value]:
-
+			if eq_id is not None:
 				# more then one reference, create new <use>
-				if len(text_objects[value]) > 0:
-					equation = XML.createElement('use')
-					equation.setAttributeNS('xlink', 'xlink:href', '#'+eq_id)
+				equation = XML.createElement('use')
+				equation.setAttributeNS('xlink', 'xlink:href', '#'+eq_id)
+
+			
+			def put_equation(x, y, sx, sy=None):
+				# calculate desired point in equation BBox
+				xo = xmin + (xmax - xmin)*px
+				yo = ymin + (ymax - ymin)*py
+
+				# move (xo,yo) to (x,y)
+				if sy is None: # sx == sy
+					equation.setAttribute(
+						'transform',
+						('translate(%s,%s)' % (SVG.c2s(x), SVG.c2s(y))) + \
+						('scale(%s)'        %  SVG.s2s(sx)) + \
+						('translate(%s,%s)' % (SVG.c2s(-xo), SVG.c2s(-yo)))
+					)
+				else:
+					equation.setAttribute(
+						'transform',
+						('translate(%s,%s)' % (SVG.c2s(x), SVG.c2s(y))) + \
+						('scale(%s,%s)'     % (SVG.s2s(sx), SVG.s2s(sy))) + \
+						('translate(%s,%s)' % (SVG.c2s(-xo), SVG.c2s(-yo)))
+					)
+				return equation
+
+
+			# string
+			if kind == 'string':
+				log.info("String '%s' is processing", value)
+				object = value
 
 				# get <text> object coords
 				x = frags.safe_float(object.getAttribute('x'))
@@ -342,134 +323,148 @@ if __name__ == '__main__':
 				# insert equation into XML tree
 				object.parentNode.insertBefore(equation, object)
 
-				# modify existing object according to options
-				if setup.options.frags_removetext:
-					object.parentNode.removeChild(object)
-				elif setup.options.frags_hideobject:
-					object.setAttribute('display', 'none')
 
+			# explicity given point
+			elif kind == 'point':
+				# insert equation into XML tree
+				x, y = value
+				XML.documentElement.appendChild(
+					put_equation(x, y, scale)
+				)
 
-		# explicity given point
-		elif kind == 'point':
-			# insert equation into XML tree
-			x, y = value
-			XML.documentElement.appendChild(
+			# text object
+			elif kind == 'id' and value.nodeName == 'text':
+				object = value
+				if settowidth or settoheight or fit:
+					log.warning("%s is a text object, can't set width/height nor fit", value)
+
+				# get <text> object coords
+				x = frags.safe_float(object.getAttribute('x'))
+				y = frags.safe_float(object.getAttribute('y'))
+
 				put_equation(x, y, scale)
-			)
 
-		# text object
-		elif kind == 'id' and value.nodeName == 'text':
-			object = value
-			if settowidth or settoheight or fit:
-				log.warning("%s is a text object, can't set width/height nor fit", value)
+				# insert equation into DOM tree
+				object.parentNode.insertBefore(equation, object)
 
-			# get <text> object coords
-			x = frags.safe_float(object.getAttribute('x'))
-			y = frags.safe_float(object.getAttribute('y'))
+			# rectangle or object with known bbox
+			elif kind == 'id' or kind == 'rect':
+				# get bounding box
+				if kind == 'rect':
+					Xmin, Ymin, Xmax, Ymax = value # rect
+				else:
+					Xmin, Ymin, Xmax, Ymax = frags.get_bbox(value) # object
 
-			put_equation(x, y, scale)
+				DX = Xmax - Xmin
+				DY = Ymax - Ymin
 
-			# insert equation into DOM tree
-			object.parentNode.insertBefore(equation, object)
+				# reference point
+				x  = Xmin + (Xmax - Xmin)*px
+				y  = Ymin + (Ymax - Ymin)*py
 
-			# modify existing object according to options
-			if setup.options.frags_removetext:
-				object.parentNode.removeChild(object)
-			elif setup.options.frags_hideobject:
-				object.setAttribute('display', 'none')
+				# and set default scale
+				sx = scale * SVG.mag
+				sy = scale * SVG.mag
 
-		# rectangle or object with known bbox
-		elif kind == 'id' or kind == 'rect':
-			# get bounding box
-			if kind == 'rect':
-				Xmin, Ymin, Xmax, Ymax = value # rect
-			else:
-				Xmin, Ymin, Xmax, Ymax = frags.get_bbox(value) # object
+					
+				# if set to width/height is set:
+				if settowidth is not None or settoheight is not None:
 
-			DX = Xmax - Xmin
-			DY = Ymax - Ymin
+					# value given by user
+					if type(settowidth) is float:
+						DX = abs(settowidth)
 
-			# reference point
-			x  = Xmin + (Xmax - Xmin)*px
-			y  = Ymin + (Ymax - Ymin)*py
-
-			# and set default scale
-			sx = scale * SVG.mag
-			sy = scale * SVG.mag
+					# width of other object
+					elif type(settowidth) is str and settowidth.startswith('#'):
+						ref = XML.getElementById(settowidth[1:])
+						if ref:
+							try:
+								Xmin, Xmax = frags.get_xbounds(ref)
+								DX = Xmax - Xmin
+							except ValueError, e:
+								log.warning("Set to width ignored, bacause: '%s'", str(e))
+						else:
+							log.warning("Can't locate object %s", settowidth)
 
 				
-			# if set to width/height is set:
-			if settowidth is not None or settoheight is not None:
+					# value given by user
+					if type(settoheight) is float:
+						DY = abs(settoheight)
 
-				# value given by user
-				if type(settowidth) is float:
-					DX = abs(settowidth)
+					# height of other object
+					elif type(settoheight) is str and settoheight.startswith('#'):
+						ref = XML.getElementById(settoheight[1:])
+						if ref:
+							try:
+								Ymin, Ymax = frags.get_ybounds(ref)
+								DY = Ymax - Ymin
+							except ValueError, e:
+								log.warning("Set to height ignored, bacause: '%s'", str(e))
+						else:
+							log.warning("Can't locate object %s", settoheight)
 
-				# width of other object
-				elif type(settowidth) is str and settowidth.startswith('#'):
-					ref = XML.getElementById(settowidth[1:])
-					if ref:
-						try:
-							Xmin, Xmax = frags.get_xbounds(ref)
-							DX = Xmax - Xmin
-						except ValueError, e:
-							log.warning("Set to width ignored, bacause: '%s'", str(e))
+					if settowidth is not None:
+						sx = DX/(xmax - xmin)
+					if settoheight is not None:
+						sy = DY/(ymax - ymin)
+
+				# Fit in rectangle
+				elif fit:
+					tmp_x = DX/(xmax - xmin)
+					tmp_y = DY/(ymax - ymin)
+
+					if tmp_x < tmp_y:
+						sx = sy = tmp_x
 					else:
-						log.warning("Can't locate object %s", settowidth)
+						sx = sy = tmp_y
+				#endif
 
-			
-				# value given by user
-				if type(settoheight) is float:
-					DY = abs(settoheight)
+				# move&scale equation
+				put_equation(x, y, sx, sy)
 
-				# height of other object
-				elif type(settoheight) is str and settoheight.startswith('#'):
-					ref = XML.getElementById(settoheight[1:])
-					if ref:
-						try:
-							Ymin, Ymax = frags.get_ybounds(ref)
-							DY = Ymax - Ymin
-						except ValueError, e:
-							log.warning("Set to height ignored, bacause: '%s'", str(e))
+				# and append to XML tree
+				if kind == 'rect':
+					XML.documentElement.appendChild(equation)
+				else:
+					# in case of existing objects, place them
+					# just "above" them
+					pn = value.parentNode
+					if value == pn.lastChild:
+						pn.appendChild(equation)
 					else:
-						log.warning("Can't locate object %s", settoheight)
-
-				if settowidth is not None:
-					sx = DX/(xmax - xmin)
-				if settoheight is not None:
-					sy = DY/(ymax - ymin)
-
-			# Fit in rectangle
-			elif fit:
-				tmp_x = DX/(xmax - xmin)
-				tmp_y = DY/(ymax - ymin)
-
-				if tmp_x < tmp_y:
-					sx = sy = tmp_x
-				else:
-					sx = sy = tmp_y
-			#endif
-
-			# move&scale equation
-			put_equation(x, y, sx, sy)
-
-			# and append to XML tree
-			if kind == 'rect':
-				XML.documentElement.appendChild(equation)
-			else:
-				# in case of existing objects, place them
-				# just "above" them
-				pn = value.parentNode
-				if value == pn.lastChild:
-					pn.appendChild(equation)
-				else:
-					pn.insertBefore(equation, value.nextSibling)
+						pn.insertBefore(equation, value.nextSibling)
 	#for
 
+	
+	# modify existing object according to options
+	if setup.options.frags_removetext:
+		for node in text_nodes:
+			node.parentNode.removeChild(node)
+	elif setup.options.frags_hideobject:
+		for node in text_nodes:
+			node.setAttribute('display', 'none')
 
+	
 	SVG.save('xxx.svg')
+	
+	# 5. clean -- remove tmp.tex, tmp.aux, tmp.log
+	extensions = ['aux', 'log']
+	if not setup.options.frags_keeptex:
+		extensions.append('tex')
+	if not setup.options.frags_keepdvi:
+		extensions.append('dvi')
+	for ext in extensions:
+		frags.remove_file('%s.%s' % (tmp_filename, ext))
+	
+	# 5a. remove outdated DVI & TeX files
+	if not setup.options.frags_keepolderfiles:
+		import glob
+		for file in glob.glob(tmp_filename[:-8] + "????????.dvi"):
+			if file != tmp_filename + ".dvi":
+				frags.remove_file(file)
+		for file in glob.glob(tmp_filename[:-8] + "????????.tex"):
+			if file != tmp_filename + ".tex":
+				frags.remove_file(file)
 
-	for ext in ['tex', 'dvi']:
-		os.remove('%s.%s' % (tmp_filename, ext))
 
 # vim: ts=4 sw=4 nowrap
