@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.26 2007-03-10 12:23:19 wojtek Exp $
+# $Id: dvi2svg.py,v 1.27 2007-03-10 15:39:41 wojtek Exp $
 # 
 # license: BSD
 #
@@ -189,7 +189,7 @@ class SVGGfxDocument(object):
 
 		# 0. get bounding box (if needed)
 		if setup.options.use_bbox:
-			xmin, ymin, xmax, ymax = self._get_page_bbox(page)
+			xmin, ymin, xmax, ymax = self.get_page_bbox(page)
 			
 			xmin -= setup.options.bbox_margin_L
 			ymin -= setup.options.bbox_margin_T
