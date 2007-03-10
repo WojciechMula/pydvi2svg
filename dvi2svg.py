@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.27 2007-03-10 15:39:41 wojtek Exp $
+# $Id: dvi2svg.py,v 1.28 2007-03-10 22:42:41 wojtek Exp $
 # 
 # license: BSD
 #
@@ -16,6 +16,8 @@
 10.03.2007
 	- SVGGfxDocument: from method 'eop' & 'save' methods 'flush_rules',
 	  'flush_chars' and 'flush_defs' were set apart
+	- smaller output files (characters in some line are shifted relative
+	  to first char in the line)
  8.03.2007
 	- a bit smaller output (+ function strip_0)
  7.03.2007
@@ -114,14 +116,22 @@ import os
 import xml.dom
 import logging
 
-import dviparser
-import fontsel
-import findfile
-import utils
 import setup
 
-from binfile import binfile
-from colors  import is_colorspecial, execute
+# import modules
+from conv import fontsel as font
+from conv import utils
+from conv import colors as colorspec
+from conv import path_element
+
+# import functions/classes
+from conv.findfile		import find_file
+from conv.binfile		import binfile
+from conv.dviparser		import dviinfo as DVI_info, get_token as DVI_token
+from conv.utils			import group_elements as group
+from conv.paper_size	import paper_size
+from conv.unic			import name_lookup
+
 
 class SVGGfxDocument(object):
 	"Outputs glyphs"
@@ -165,7 +175,7 @@ class SVGGfxDocument(object):
 	
 	def put_char(self, h, v, fntnum, dvicode, color=None, next=False):
 		try:
-			glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
+			glyph, glyphscale, hadv = font.get_char(fntnum, dvicode)
 			assert glyph is not None, (fntnum, dvicode)
 		except KeyError:
 			return 0.0
@@ -224,7 +234,6 @@ class SVGGfxDocument(object):
 	def get_page_bbox(self, page=None):
 		"Returns bbox of chars (self.chars) and rules (self.reules)."
 
-		import path_element
 		new  = self.document.createElement
 		X = []
 		Y = []
@@ -234,7 +243,7 @@ class SVGGfxDocument(object):
 			try:
 				bbox = self.bbox_cache[fntnum, dvicode]
 			except KeyError:
-				path   = fontsel.get_char(fntnum, dvicode)[0]
+				path   = font.get_char(fntnum, dvicode)[0]
 				tokens = path_element.tokens(path)
 				bbox   = path_element.bounding_box(tokens)
 				self.bbox_cache[fntnum, dvicode] = bbox
@@ -294,7 +303,6 @@ class SVGGfxDocument(object):
 
 		elements = []
 
-		from utils import group_elements as group
 		# (fntnum, dvicode, next, H, V, glyphscale, color)
 
 		# group chars with same glyphscale
@@ -307,11 +315,15 @@ class SVGGfxDocument(object):
 			# then group by V
 			byV = group(chars2, value=lambda x: x[4])
 			for (V, chars3) in byV:
+
+				xo = chars3[0][3]/glyphscale # get X coords of first
 				g1 = new('g')
-				g1.setAttribute('transform', 'translate(0,%s)' % c2s(-V/glyphscale))
+				g1.setAttribute('transform', 'translate(%s,%s)' % 
+					(c2s(xo), c2s(-V/glyphscale))
+				)
 				g.appendChild(g1)
 
-				for char in chars3:
+				for j, char in enumerate(chars3):
 					c = new('use')
 					g1.appendChild(c)
 
@@ -322,7 +334,8 @@ class SVGGfxDocument(object):
 					idref   = "#%02x%d" % (dvicode, fntnum)
 
 					c.setAttributeNS('xlink', 'xlink:href', idref)
-					c.setAttribute('x', c2s(H/glyphscale))
+					if j > 0:
+						c.setAttribute('x', c2s(H/glyphscale - xo))
 					if color:
 						c.setAttribute('fill', color)
 	
@@ -357,7 +370,7 @@ class SVGGfxDocument(object):
 		elements = []
 		for fntnum, dvicode in self.id:
 			try:
-				glyph, _, _ = fontsel.get_char(fntnum, dvicode)
+				glyph, _, _ = font.get_char(fntnum, dvicode)
 			except KeyError:
 				continue
 
@@ -386,15 +399,14 @@ class SVGGfxDocument(object):
 		f.close()
 
 
-from unic import name_lookup
 class SVGTextDocument(SVGGfxDocument):
 	"""
 	Outputs text
 	"""
 	def put_char(self, h, v, fntnum, dvicode, color=None, next=False):
 		try:
-			glyph, glyphscale, hadv = fontsel.get_char(fntnum, dvicode)
-			glyphname = fontsel.get_char_name(fntnum, dvicode)
+			glyph, glyphscale, hadv = font.get_char(fntnum, dvicode)
+			glyphname = font.get_char_name(fntnum, dvicode)
 		except KeyError:
 			return 0.0
 
@@ -428,20 +440,17 @@ class SVGTextDocument(SVGGfxDocument):
 			page.appendChild(rect)
 
 		# 2. process chars
-		from utils import group_elements as group
 
 		# (H, V, fntnum, glyphname, next, color)
-	
-
 		# group chars typeseted with the same font
 		byfntnum = group(self.chars, value=lambda x: x[2])
 		for (fntnum, char_list) in byfntnum:
 			g = new('tspan')
 			page.appendChild(g)
 
-			font  = fontsel.get_font(fntnum)
-			style = "font-family:%s; font-size:%0.1fpt" % (font.fontfamily, font.designsize)
-			s,d   = font.sd
+			fnt   = font.get_font(fntnum)
+			style = "font-family:%s; font-size:%0.1fpt" % (fnt.fontfamily, fnt.designsize)
+			s,d   = fnt.sd
 			if s != d:	# scaled font
 				style += "; font-scale: %0.1f%%" % ((100.0*s)/d)
 
@@ -533,7 +542,7 @@ def convert_page(dvi, document):
 
 	while dvi:
 		prevcommand  = command
-		command, arg = dviparser.get_token(dvi)
+		command, arg = DVI_token(dvi)
 
 		if command == 'put_char':
 			document.put_char(h, v, fntnum, arg, color)
@@ -596,8 +605,8 @@ def convert_page(dvi, document):
 			h += b
 
 		elif command == "xxx":	# special
-			if is_colorspecial(arg):
-				color, background = execute(arg)
+			if colorspec.is_colorspecial(arg):
+				color, background = colorspec.execute(arg)
 		else:
 			raise NotImplementedError("Command '%s' not implemented." % command)
 
@@ -671,7 +680,6 @@ if __name__ == '__main__':
 	log = logging.getLogger('dvi2svg')
 
 	# read paper size/print all known paper-size names
-	from paper_size import paper_size
 	ps = setup.options.paper_size.upper()
 	try:
 		(pw, ph) = paper_size[ps]
@@ -732,9 +740,9 @@ if __name__ == '__main__':
 	setup.options.enc_methods = utils.parse_enc_methods(setup.options.enc_methods)
 
 	if setup.options.enc_repl:
-		fontsel.preload(utils.parse_enc_repl(setup.options.enc_repl))
+		font.preload(utils.parse_enc_repl(setup.options.enc_repl))
 	else:
-		fontsel.preload()
+		font.preload()
 
 	
 	# process command line
@@ -751,7 +759,7 @@ if __name__ == '__main__':
 			       f==fname + '.dvi' or \
 			       f==fname + '.DVI' or \
 			       f==fname + '.Dvi'
-		dvi = findfile.find_file(dir, dvipred, enterdir=lambda p, l: False)
+		dvi = find_file(dir, dvipred, enterdir=lambda p, l: False)
 		if dvi is not None:
 			return ('dvi', dvi)
 		
@@ -794,7 +802,7 @@ if __name__ == '__main__':
 		#
 		# 2. Read DVI info	
 		#
-		comment, (num, den, mag, u, l), page_offset, fonts = dviparser.dviinfo(dvi)
+		comment, (num, den, mag, u, l), page_offset, fonts = DVI_info(dvi)
 		n       = len(page_offset)
 		unit_mm = num/(den*10000.0)
 
@@ -813,8 +821,8 @@ if __name__ == '__main__':
 			log.debug("Font %s=%s" % (k, fontname))
 			#print "Font %s=%s" % (k, fontname)
 			try:
-				fontsel.create_DVI_font(fontname, k, s, d, setup.options.enc_methods)
-			except fontsel.FontError, e:
+				font.create_DVI_font(fontname, k, s, d, setup.options.enc_methods)
+			except font.FontError, e:
 				log.error("Can't find font '%s': %s" % (fontname, str(e)))
 				missing.append((k, fontname))
 
