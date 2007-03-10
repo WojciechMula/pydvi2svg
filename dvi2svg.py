@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.25 2007-03-09 23:57:21 wojtek Exp $
+# $Id: dvi2svg.py,v 1.26 2007-03-10 12:23:19 wojtek Exp $
 # 
 # license: BSD
 #
@@ -13,6 +13,9 @@
 
 # changelog
 """
+10.03.2007
+	- SVGGfxDocument: from method 'eop' & 'save' methods 'flush_rules',
+	  'flush_chars' and 'flush_defs' were set apart
  8.03.2007
 	- a bit smaller output (+ function strip_0)
  7.03.2007
@@ -179,14 +182,11 @@ class SVGGfxDocument(object):
 		self.rules.append( (h, v, a, b, color) )
 	
 	def eop(self):
-		new  = self.document.createElement
-		scale2str = self.scale2str
-		coord2str = self.coord2str
+		"Finish the page"
 
-		page = new('g')
-		page.setAttribute('transform', 'scale(%s)' % str(self.mag))
-		self.svg.appendChild(page)
-		
+		s2s = self.scale2str
+		c2s = self.coord2str
+
 		# 0. get bounding box (if needed)
 		if setup.options.use_bbox:
 			xmin, ymin, xmax, ymax = self._get_page_bbox(page)
@@ -198,63 +198,30 @@ class SVGGfxDocument(object):
 			
 			dx = (xmax - xmin)*self.mag
 			dy = (ymax - ymin)*self.mag
-			self.svg.setAttribute("width",  coord2str(dx))
-			self.svg.setAttribute("height", coord2str(dy))
+			self.svg.setAttribute("width",  c2s(dx))
+			self.svg.setAttribute("height", c2s(dy))
 			self.svg.setAttribute("viewBox", "%s %s %s %s" % 
-				(coord2str(xmin*self.mag), coord2str(ymin*self.mag),
-				coord2str(dx), coord2str(dy))
+				(c2s(xmin*self.mag), c2s(ymin*self.mag), c2s(dx), c2s(dy))
 			)
+
+		elements = []
 		
 		# 1. make rules (i.e. filled rectangles)
-		for (h,v, a, b, color) in self.rules:
-			rect = new('rect')
-			rect.setAttribute('x',      coord2str(self.scale * (h + self.oneinch)))
-			rect.setAttribute('y',      coord2str(self.scale * (v - a + self.oneinch)))
-			rect.setAttribute('width',  coord2str(self.scale * b))
-			rect.setAttribute('height', coord2str(self.scale * a))
-			if color:
-				rect.setAttribute('fill', color)
-
-			page.appendChild(rect)
+		elements.extend( self.flush_rules() )
 
 		# 2. process chars
-		from utils import group_elements as group
-		
+		elements.extend( self.flush_chars() )
 
-		# (fntnum, dvicode, next, H, V, glyphscale, color)
+		# 3. append elements to page, and page to document
+		self.lastpage = self.document.createElement('g')
+		self.lastpage.setAttribute('transform', 'scale(%s)' % str(self.mag))
+		self.svg.appendChild(self.lastpage)
 
-		# group chars with same glyphscale
-		byglyphscale = group(self.chars, value=lambda x: x[5])
-		for (glyphscale, chars2) in byglyphscale:
-			g = new('g')
-			g.setAttribute('transform', 'scale(%s,%s)' % (scale2str(glyphscale), scale2str(-glyphscale) ))
-			page.appendChild(g)
+		for element in elements:
+			self.lastpage.appendChild(element)
 
-			# then group by V
-			byV = group(chars2, value=lambda x: x[4])
-			for (V, chars3) in byV:
-				g1 = new('g')
-				g1.setAttribute('transform', 'translate(0,%s)' % coord2str(-V/glyphscale))
-				g.appendChild(g1)
-
-				for char in chars3:
-					c = new('use')
-					g1.appendChild(c)
-
-					H        = char[3]
-					fntnum   = char[0]
-					dvicode  = char[1]
-					color    = char[6]
-					idstring = "%02x%d" % (dvicode, fntnum)
-
-					c.setAttributeNS('xlink', 'xlink:href', '#'+idstring)
-					c.setAttribute('x', coord2str(H/glyphscale))
-					if color:
-						c.setAttribute('fill', color)
-
-		#rof
 	
-	def _get_page_bbox(self, page=None):
+	def get_page_bbox(self, page=None):
 		"Returns bbox of chars (self.chars) and rules (self.reules)."
 
 		import path_element
@@ -319,24 +286,98 @@ class SVGGfxDocument(object):
 		
 		return xmin, ymin, xmax, ymax
 
+
+	def flush_chars(self):
+		new = self.document.createElement
+		s2s = self.scale2str
+		c2s = self.coord2str
+
+		elements = []
+
+		from utils import group_elements as group
+		# (fntnum, dvicode, next, H, V, glyphscale, color)
+
+		# group chars with same glyphscale
+		byglyphscale = group(self.chars, value=lambda x: x[5])
+		for (glyphscale, chars2) in byglyphscale:
+			g = self.document.createElement('g')
+			g.setAttribute('transform', 'scale(%s,%s)' % (s2s(glyphscale), s2s(-glyphscale) ))
+			elements.append(g)
+
+			# then group by V
+			byV = group(chars2, value=lambda x: x[4])
+			for (V, chars3) in byV:
+				g1 = new('g')
+				g1.setAttribute('transform', 'translate(0,%s)' % c2s(-V/glyphscale))
+				g.appendChild(g1)
+
+				for char in chars3:
+					c = new('use')
+					g1.appendChild(c)
+
+					H       = char[3]
+					fntnum  = char[0]
+					dvicode = char[1]
+					color   = char[6]
+					idref   = "#%02x%d" % (dvicode, fntnum)
+
+					c.setAttributeNS('xlink', 'xlink:href', idref)
+					c.setAttribute('x', c2s(H/glyphscale))
+					if color:
+						c.setAttribute('fill', color)
 	
-	def save(self, filename):
-		# create defs
-		defs = self.document.createElement('defs')
+		self.chars = []
+		return elements
+		#rof
+	
+	
+	def flush_rules(self):
+		new = self.document.createElement
+		c2s = self.coord2str
+
+		elements = []
+		for (h,v, a, b, color) in self.rules:
+			rect = new('rect')
+			rect.setAttribute('x',      c2s(self.scale * (h + self.oneinch)))
+			rect.setAttribute('y',      c2s(self.scale * (v - a + self.oneinch)))
+			rect.setAttribute('width',  c2s(self.scale * b))
+			rect.setAttribute('height', c2s(self.scale * a))
+			if color:
+				rect.setAttribute('fill', color)
+
+			elements.append(rect)
+
+		self.rules = []
+		return elements
+	
+
+	def flush_glyphs(self):
+		new = self.document.createElement
+		
+		elements = []
 		for fntnum, dvicode in self.id:
 			try:
 				glyph, _, _ = fontsel.get_char(fntnum, dvicode)
 			except KeyError:
 				continue
 
-			path = self.document.createElement('path')
+			path = new('path')
 			path.setAttribute("id", "%02x%d" % (dvicode, fntnum))
 			path.setAttribute("d",  glyph)
-			defs.appendChild(path)
+			elements.append(path)
 
+		return elements
+
+	
+	def save(self, filename):
+		# create defs
+		defs = self.document.createElement('defs')
 		self.svg.insertBefore(defs, self.svg.firstChild)
 
-		# save
+		for element in self.flush_glyphs():
+			defs.appendChild(element)
+
+		# save file
 		f = open(filename, 'wb')
 		if setup.options.prettyXML:
 			f.write(self.document.toprettyxml())
@@ -540,7 +581,7 @@ def convert_page(dvi, document):
 		elif command == 'fnt_num':
 			fntnum = arg
 		elif command == 'fnt_def':
-			pass		# fonts are already loaded
+			pass		# fonts are already loaded, nothing to do
 		elif command == "pre":
 			raise ValueError("'pre' command is not allowed inside page - DVI corrupted")
 		elif command == "post":
