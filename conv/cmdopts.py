@@ -5,6 +5,8 @@ import utils
 import sys
 from paper_size import paper_size
 
+log = logging.getLogger('dvi2svg')
+
 
 def parse_args(args=None):
 	parser = optparse.OptionParser()
@@ -116,7 +118,6 @@ or bbox:L,R,T,B (all different)""",
 		default	= False,
 	)
 
-
 	parser.add_option(
 		"--pretty-xml",
 		help	= "output nice formated XML, easy to read\
@@ -145,7 +146,6 @@ def parse_enc_methods(option, opt_str, value, parser):
 def parse_enc_repl(option, opt_str, value, parser):
 	parser.values.enc_repl = utils.parse_enc_repl(value)
 
-log = logging.getLogger('dvi2svg')
 
 def parse_paper_size(option, opt_str, value, parser):
 	# read paper size/print all known paper-size names
