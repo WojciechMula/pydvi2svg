@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.30 2007-03-11 12:21:11 wojtek Exp $
+# $Id: dvi2svg.py,v 1.31 2007-03-11 12:24:17 wojtek Exp $
 #
 # license: BSD
 #
@@ -173,7 +173,6 @@ class SVGGfxDocument(object):
 	def new_page(self):
 		self.chars = []
 		self.rules = []
-		self.id    = set()
 
 	def put_char(self, h, v, fntnum, dvicode, color=None, next=False):
 		try:
