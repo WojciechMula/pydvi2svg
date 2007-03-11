@@ -4,7 +4,7 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.28 2007-03-10 22:42:41 wojtek Exp $
+# $Id: dvi2svg.py,v 1.29 2007-03-11 00:26:36 wojtek Exp $
 # 
 # license: BSD
 #
@@ -18,6 +18,7 @@
 	  'flush_chars' and 'flush_defs' were set apart
 	- smaller output files (characters in some line are shifted relative
 	  to first char in the line)
+	- command line parsing moved to conv/cmdopts.py
  8.03.2007
 	- a bit smaller output (+ function strip_0)
  7.03.2007
@@ -123,15 +124,14 @@ from conv import fontsel as font
 from conv import utils
 from conv import colors as colorspec
 from conv import path_element
+from conv import cmdopts
 
 # import functions/classes
 from conv.findfile		import find_file
 from conv.binfile		import binfile
 from conv.dviparser		import dviinfo as DVI_info, get_token as DVI_token
 from conv.utils			import group_elements as group
-from conv.paper_size	import paper_size
 from conv.unic			import name_lookup
-
 
 class SVGGfxDocument(object):
 	"Outputs glyphs"
@@ -199,7 +199,7 @@ class SVGGfxDocument(object):
 
 		# 0. get bounding box (if needed)
 		if setup.options.use_bbox:
-			xmin, ymin, xmax, ymax = self.get_page_bbox(page)
+			xmin, ymin, xmax, ymax = self.get_page_bbox()
 			
 			xmin -= setup.options.bbox_margin_L
 			ymin -= setup.options.bbox_margin_T
@@ -231,7 +231,7 @@ class SVGGfxDocument(object):
 			self.lastpage.appendChild(element)
 
 	
-	def get_page_bbox(self, page=None):
+	def get_page_bbox(self, element=None):
 		"Returns bbox of chars (self.chars) and rules (self.reules)."
 
 		new  = self.document.createElement
@@ -262,7 +262,7 @@ class SVGGfxDocument(object):
 			tmp.setAttribute('y', str(V-ymax*glyphscale))
 			tmp.setAttribute('width',  str(glyphscale * (xmin-xmax)))
 			tmp.setAttribute('height', str(glyphscale * (ymax-ymin)))
-			page.appendChild(tmp)
+			element.appendChild(tmp)
 			"""
 	
 		# bbox of rules
@@ -290,7 +290,7 @@ class SVGGfxDocument(object):
 		tmp.setAttribute('fill',  'none')
 		tmp.setAttribute('stroke','red')
 		tmp.setAttribute('stroke-width', '2')
-		page.appendChild(tmp)
+		element.appendChild(tmp)
 		"""
 		
 		return xmin, ymin, xmax, ymax
@@ -610,141 +610,24 @@ def convert_page(dvi, document):
 		else:
 			raise NotImplementedError("Command '%s' not implemented." % command)
 
+logging.basicConfig(level=logging.INFO)
 
 if __name__ == '__main__':
-	import optparse
-	
-	parser = optparse.OptionParser()
-	
-	parser.add_option("--enc",
-					  dest="enc_repl",
-					  default={})
-	
-	parser.add_option("--pretty-xml",
-	                  action="store_true",
-					  dest="prettyXML",
-					  default=False)
-
-	parser.add_option("--single-file",
-	                  action="store_true",
-					  dest="single_file",
-					  default=False)
-
-	parser.add_option("--pages",
-	                  dest="pages")
-	
-	parser.add_option("--scale",
-	                  dest="scale",
-					  default=1.0)
-
-	parser.add_option("--paper-size",
-	                  dest="paper_size",
-					  default="A4")
-	
-	parser.add_option("--generate-text",
-	                  action="store_true",
-	                  dest="generate_text",
-					  default=False)
-	
-	parser.add_option("--enc-methods",
-	                  dest="enc_methods",
-					  default="c,t,a")
-
-	parser.add_option("--no-fontforge",
-					  action="store_false",
-	                  dest="use_fontforge",
-					  default=True)
-	
-	parser.add_option("--no-fnt2meta",
-					  action="store_false",
-	                  dest="use_fnt2meta",
-					  default=True)
-	
-	parser.add_option("--verbose",
-					  action="store_true",
-	                  dest="verbose",
-					  default=False)
-	
-	parser.add_option("--always-number",
-					  action="store_true",
-	                  dest="always_number",
-					  default=False)
-
-	(setup.options, args) = parser.parse_args()
+	(setup.options, args) = cmdopts.parse_args()
 
 	# set logging level
 	if setup.options.verbose:
 		logging.basicConfig(level=logging.DEBUG)
-	else:
-		logging.basicConfig(level=logging.INFO)
+	
 	log = logging.getLogger('dvi2svg')
-
-	# read paper size/print all known paper-size names
-	ps = setup.options.paper_size.upper()
-	try:
-		(pw, ph) = paper_size[ps]
-		setup.options.use_bbox = False
-		log.debug("Paper size set to %s (%dmm x %dmm)",
-		          setup.options.paper_size.upper(), pw, ph)
-	except KeyError:
-		if ps == "QUERY":
-			for name in sorted(paper_size.keys()):
-				(pw, ph) = paper_size[name]
-				print "%-4s: %dmm x %dmm" % (name, pw, ph)
-			del name
-			sys.exit()
-		elif ps.startswith("BBOX"): # Bounding box
-			(pw, ph) = (0, 0)
-			
-			# variants:
-			#  1. BBOX
-			#  2. BBOX:number
-			#  3. BBOX:number,number
-			setup.options.use_bbox = True
-		
-			mT = mB = mL = mR = 0.0
-			if ps.startswith("BBOX:"): # 2. & 3.
-				tmp = ps[5:].split(",", 4)
-				if len(tmp) == 1: # BBOX:number
-					mT = mB = mL = mR = abs(utils.safe_float(tmp[0]))
-				elif len(tmp) == 2: # BBOX:number,number
-					mL = mR = abs(utils.safe_float(tmp[0]))
-					mT = mB = abs(utils.safe_float(tmp[1]))
-				elif len(tmp) == 4: # BBOX:number,number,number,number
-					mL = abs(utils.safe_float(tmp[0]))
-					mR = abs(utils.safe_float(tmp[1]))
-					mT = abs(utils.safe_float(tmp[2]))
-					mB = abs(utils.safe_float(tmp[3]))
-
-			setup.options.bbox_margin_L = mL
-			setup.options.bbox_margin_R = mR
-			setup.options.bbox_margin_T = mT
-			setup.options.bbox_margin_B = mB
-			log.debug("BBox margins: left=%0.2f, right=%0.2f, top=%0.2f, bottom=%02f",
-				setup.options.bbox_margin_L,
-				setup.options.bbox_margin_R,
-				setup.options.bbox_margin_T,
-				setup.options.bbox_margin_B,
-			)
-				
-		else:
-			log.warning("Know nothing about paper size %s, defaults to A4" % ps)
-			(pw, ph) = paper_size['A4']
-	del ps
 	
 	if not args:
 		log.info("Nothing to do.")
 		sys.exit()
 
 	# load & process information about encoding
-	setup.options.enc_methods = utils.parse_enc_methods(setup.options.enc_methods)
+	font.preload(setup.options.enc_repl)
 
-	if setup.options.enc_repl:
-		font.preload(utils.parse_enc_repl(setup.options.enc_repl))
-	else:
-		font.preload()
-
-	
 	# process command line
 	def preprocess(filename):
 		# directory? (output)
@@ -858,7 +741,7 @@ if __name__ == '__main__':
 			SVGDocument = SVGGfxDocument
 
 		if setup.options.single_file:
-			svg = SVGDocument(1.25 * mag, scale, unit_mm, (pw,ph))
+			svg = SVGDocument(1.25 * mag, scale, unit_mm, setup.options.paper_size)
 			for i, pageno in enumerate(pages):
 				log.info("Procesing page %d (%d of %d)", pageno+1, i+1, len(pages))
 				dvi.seek(page_offset[pageno])
@@ -871,7 +754,7 @@ if __name__ == '__main__':
 			for i, pageno in enumerate(pages):
 				log.info("Procesing page %d (%d of %d)", pageno+1, i+1, n)
 				dvi.seek(page_offset[pageno])
-				svg = SVGDocument(1.25 * mag, scale, unit_mm, (pw,ph))
+				svg = SVGDocument(1.25 * mag, scale, unit_mm, setup.options.paper_size)
 				svg.new_page()
 				convert_page(dvi, svg)
 				if n == 1 and not setup.options.always_number:
