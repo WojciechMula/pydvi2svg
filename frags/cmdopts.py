@@ -1,46 +1,32 @@
 import optparse
 import conv.utils
 
-def parse_enc_methods(option, opt_str, value, parser):
-	if len(parser.rargs) == 0:
-		raise optparse.OptionValueError("--enc - argument required")
-	parser.values.enc_repl = utils.parse_enc_methods(parser.rargs.pop(0))
-
 
 def parse_args(args=None):
 	parser = optparse.OptionParser()
-
-	# DVI engine options
-	parser.add_option(
-		"--enc",
-		help	= "Methods use to resolve font encoding; \
-		           comma-separated list of keywords: \
-				   cache, tfm, afm, map, guess.  Default: \
-				   cache,tfm,afm.",
-		dest	= "enc_repl",
-		action	= "callback",
-		callback= parse_enc_methods,
-		default	= {},
-	)
-
-	parser.add_option("--pages",
-	                  dest="pages")
-	
-	parser.add_option("--enc-methods",
-	                  dest="enc_methods",
-					  default="c,t,a")
-
-	parser.add_option("--no-fontforge",
-					  action="store_false",
-	                  dest="use_fontforge",
-					  default=True)
-	
-	parser.add_option("--no-fnt2meta",
-					  action="store_false",
-	                  dest="use_fnt2meta",
-					  default=True)
 	
 	# SVGfrags options
+	parser.add_option(
+		"-i", "--input",
+		help	= "Name of input SVG file",
+		dest	= "input_svg",
+		default	= ""
+	)
+
+	parser.add_option(
+		"-o", "--output",
+		help	= "Name of output SVG file",
+		dest	= "output_svg",
+		default	= ""
+	)
+
+	parser.add_option(
+		"-r", "--rules",
+		help	= "Name of text file that contains replacement rules",
+		dest	= "input_txt",
+		default	= ""
+	)
+	
 	parser.add_option(
 		"--no-strip",
 		help	= "Do not strip leading & trailing spaces from strings",
@@ -89,25 +75,53 @@ def parse_args(args=None):
 		default	= False,
 	)
 
+	# DVI engine options
 	parser.add_option(
-		"-i", "--input",
-		help	= "Name of input SVG file",
-		dest	= "input_svg",
-		default	= ""
+		"--enc",
+		help	= "encoding of fonts; comma separated list of pair font:encoding, for example: cmr10:ot1,pltt:t1",
+		dest  	= "enc_repl",
+		type	= "string",
+		action	= "callback",
+		callback= parse_enc_repl,
+		default	= {},
 	)
 
 	parser.add_option(
-		"-o", "--output",
-		help	= "Name of output SVG file",
-		dest	= "output_svg",
-		default	= ""
+		"--enc-methods",
+		help	= "Methods use to resolve font encoding; \
+		           comma-separated list of keywords: \
+				   cache, tfm, afm, map, guess.  Default: \
+				   cache,tfm,afm.",
+		dest	= "enc_methods",
+		type	= "string",
+		action	= "callback",
+		callback= parse_enc_methods,
+		default	= "c,t,a"
+	)
+	
+	parser.add_option(
+		"--no-fontforge",
+		help	= "do not use Fontforge, even if available",
+		dest  	= "use_fontforge",
+		action	= "store_false",
+		default	= True,
 	)
 
 	parser.add_option(
-		"-r", "--rules",
-		help	= "Name of text file that contains replacement rules",
-		dest	= "input_txt",
-		default	= ""
+		"--no-fnt2meta",
+		help	= "do not use fnt2meta, even if available",
+		dest  	= "use_fnt2meta",
+		action	= "store_false",
+		default	= True,
+	)
+
+	parser.add_option(
+		"--pretty-xml",
+		help	= "output nice formated XML, easy to read\
+		           (debugging purposes)",
+		dest  	= "prettyXML",
+		action	= "store_true",
+		default	= False,
 	)
 
 	if args is not None:
@@ -115,9 +129,13 @@ def parse_args(args=None):
 	else:
 		return parser.parse_args()
 
-#	parser.add_option("--verbose",
-#					  action="store_true",
-#	                  dest="verbose",
-#					  default=False)
-	
+
+def parse_enc_repl(option, opt_str, value, parser):
+	parser.values.enc_repl = utils.parse_enc_repl(value)
+
+
+def parse_enc_methods(option, opt_str, value, parser):
+	parser.values.enc_methods = utils.parse_enc_methods(value)
+
+
 # vim: ts=4 sw=4 nowrap
