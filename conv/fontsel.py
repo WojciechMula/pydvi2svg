@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-2 -*-
 #
 # SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.17 2007-03-04 21:55:36 wojtek Exp $
+# $Id: fontsel.py,v 1.18 2007-03-11 12:22:12 wojtek Exp $
 #
 # license: BSD
 #
@@ -39,7 +39,7 @@
  	- added fontDB functions:
 		- load fonts at given scale (create_DVI_font)
 		- get glyph data, its scale and hadv for given char (get_char)
-	- ovrride encoding of font
+	- override encoding of font
 	- permanently modify encoding (change file setup.font_lookup)
  5.10.2006
 	- removed unused function
@@ -82,7 +82,7 @@ fnt2meta_path = "fnt2meta"
 encodingDB	= EncodingDB(setup.encoding_path, setup.tex_paths)
 
 # get logger
-log 		= logging.getLogger('fonts')
+log = logging.getLogger('fonts')
 
 class FontError(Exception):
 	pass
