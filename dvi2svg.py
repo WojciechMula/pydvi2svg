@@ -4,8 +4,8 @@
 # pydvi2svg
 #
 # Main program
-# $Id: dvi2svg.py,v 1.29 2007-03-11 00:26:36 wojtek Exp $
-# 
+# $Id: dvi2svg.py,v 1.30 2007-03-11 12:21:11 wojtek Exp $
+#
 # license: BSD
 #
 # author: Wojciech Mu³a
@@ -13,6 +13,8 @@
 
 # changelog
 """
+11.03.2007
+	- added fntnum_recode table -- a bit shorter files
 10.03.2007
 	- SVGGfxDocument: from method 'eop' & 'save' methods 'flush_rules',
 	  'flush_chars' and 'flush_defs' were set apart
@@ -77,14 +79,14 @@
 	  and y coordinate are grouped;
 
 	  For example:
-	  	
+
 		<use x="0" y="10" transform="scale(0.5)" .../>
 		<use x="1" y="10" transform="scale(0.5)" .../>
 		<use x="2" y="10" transform="scale(0.5)" .../>
 		<use x="3" y="11" transform="scale(0.5)" .../>
 		<use x="4" y="11" transform="scale(0.5)" .../>
 		<use x="5" y="11" transform="scale(0.5)" .../>
-	
+
 	  become
 
 		<g transform="scale(0.5)">
@@ -167,12 +169,12 @@ class SVGGfxDocument(object):
 
 		self.svg.setAttribute('width',  '%smm' % str(page_size[0]))
 		self.svg.setAttribute('height', '%smm' % str(page_size[1]))
-	
+
 	def new_page(self):
 		self.chars = []
 		self.rules = []
-		pass
-	
+		self.id    = set()
+
 	def put_char(self, h, v, fntnum, dvicode, color=None, next=False):
 		try:
 			glyph, glyphscale, hadv = font.get_char(fntnum, dvicode)
@@ -187,10 +189,10 @@ class SVGGfxDocument(object):
 
 		self.chars.append( (fntnum, dvicode, next, H, V, glyphscale, color) )
 		return hadv
-	
+
 	def put_rule(self, h, v, a, b, color=None):
 		self.rules.append( (h, v, a, b, color) )
-	
+
 	def eop(self):
 		"Finish the page"
 
@@ -200,22 +202,22 @@ class SVGGfxDocument(object):
 		# 0. get bounding box (if needed)
 		if setup.options.use_bbox:
 			xmin, ymin, xmax, ymax = self.get_page_bbox()
-			
+
 			xmin -= setup.options.bbox_margin_L
 			ymin -= setup.options.bbox_margin_T
 			xmax += setup.options.bbox_margin_R
 			ymax += setup.options.bbox_margin_B
-			
+
 			dx = (xmax - xmin)*self.mag
 			dy = (ymax - ymin)*self.mag
 			self.svg.setAttribute("width",  c2s(dx))
 			self.svg.setAttribute("height", c2s(dy))
-			self.svg.setAttribute("viewBox", "%s %s %s %s" % 
+			self.svg.setAttribute("viewBox", "%s %s %s %s" %
 				(c2s(xmin*self.mag), c2s(ymin*self.mag), c2s(dx), c2s(dy))
 			)
 
 		elements = []
-		
+
 		# 1. make rules (i.e. filled rectangles)
 		elements.extend( self.flush_rules() )
 
@@ -230,7 +232,7 @@ class SVGGfxDocument(object):
 		for element in elements:
 			self.lastpage.appendChild(element)
 
-	
+
 	def get_page_bbox(self, element=None):
 		"Returns bbox of chars (self.chars) and rules (self.reules)."
 
@@ -264,12 +266,12 @@ class SVGGfxDocument(object):
 			tmp.setAttribute('height', str(glyphscale * (ymax-ymin)))
 			element.appendChild(tmp)
 			"""
-	
+
 		# bbox of rules
 		for (h,v, a, b, color) in self.rules:
 			X.append(self.scale * (h + self.oneinch))
 			X.append(self.scale * (h + self.oneinch + b))
-			
+
 			Y.append(self.scale * (v - a + self.oneinch))
 			Y.append(self.scale * (v + self.oneinch))
 
@@ -292,7 +294,7 @@ class SVGGfxDocument(object):
 		tmp.setAttribute('stroke-width', '2')
 		element.appendChild(tmp)
 		"""
-		
+
 		return xmin, ymin, xmax, ymax
 
 
@@ -318,7 +320,7 @@ class SVGGfxDocument(object):
 
 				xo = chars3[0][3]/glyphscale # get X coords of first
 				g1 = new('g')
-				g1.setAttribute('transform', 'translate(%s,%s)' % 
+				g1.setAttribute('transform', 'translate(%s,%s)' %
 					(c2s(xo), c2s(-V/glyphscale))
 				)
 				g.appendChild(g1)
@@ -338,12 +340,12 @@ class SVGGfxDocument(object):
 						c.setAttribute('x', c2s(H/glyphscale - xo))
 					if color:
 						c.setAttribute('fill', color)
-	
+
 		self.chars = []
 		return elements
 		#rof
-	
-	
+
+
 	def flush_rules(self):
 		new = self.document.createElement
 		c2s = self.coord2str
@@ -362,11 +364,11 @@ class SVGGfxDocument(object):
 
 		self.rules = []
 		return elements
-	
+
 
 	def flush_glyphs(self):
 		new = self.document.createElement
-		
+
 		elements = []
 		for fntnum, dvicode in self.id:
 			try:
@@ -381,7 +383,7 @@ class SVGGfxDocument(object):
 
 		return elements
 
-	
+
 	def save(self, filename):
 		# create defs
 		defs = self.document.createElement('defs')
@@ -417,7 +419,7 @@ class SVGTextDocument(SVGGfxDocument):
 
 		# return horizontal advance
 		return hadv
-	
+
 	def eop(self):
 		new  = self.document.createElement
 		scale2str = self.scale2str
@@ -426,7 +428,7 @@ class SVGTextDocument(SVGGfxDocument):
 		page = new('g')
 		page.setAttribute('transform', 'scale(%s)' % str(self.mag))
 		self.svg.appendChild(page)
-		
+
 		# 1. make rules (i.e. filled rectangles)
 		for (h,v, a, b, color) in self.rules:
 			rect = new('rect')
@@ -455,7 +457,7 @@ class SVGTextDocument(SVGGfxDocument):
 				style += "; font-scale: %0.1f%%" % ((100.0*s)/d)
 
 			g.setAttribute('style', style)
-				
+
 			def isglyphknown(glyphname):
 				try:
 					return bool(name_lookup[glyphname])
@@ -467,7 +469,7 @@ class SVGTextDocument(SVGGfxDocument):
 				V     = list[0][1]
 				color = list[0][5]
 				text  = ''.join([name_lookup[item[3]] for item in list])
-				
+
 				node = new('text')
 				if color:
 					node.setAttribute('style', 'fill:%s' % color)
@@ -476,13 +478,13 @@ class SVGTextDocument(SVGGfxDocument):
 				node.setAttribute('y', coord2str(V))
 				node.appendChild(self.document.createTextNode(text))
 				return node
-			
+
 			def output_char(char):
 				H     = char[0]
 				V     = char[1]
 				color = char[5]
 				text  = name_lookup[char[3]]
-				
+
 				node = new('text')
 				if color:
 					node.setAttribute('style', 'fill:%s' % color)
@@ -518,16 +520,16 @@ class SVGTextDocument(SVGGfxDocument):
 
 
 		#rof
-	
+
 	def save(self, filename):
 		if setup.options.prettyXML:
 			log.warning("Pretty XML is disabled in text mode")
-		
+
 		# save
 		f = open(filename, 'wb')
 		f.write(self.document.toxml(encoding="utf-8"))
 		f.close()
-	
+
 
 def convert_page(dvi, document):
 
@@ -588,7 +590,7 @@ def convert_page(dvi, document):
 			z  = arg
 			v += arg
 		elif command == 'fnt_num':
-			fntnum = arg
+			fntnum = fntnum_recode[arg] # recode fntnum, see comment marked with (A)
 		elif command == 'fnt_def':
 			pass		# fonts are already loaded, nothing to do
 		elif command == "pre":
@@ -618,9 +620,9 @@ if __name__ == '__main__':
 	# set logging level
 	if setup.options.verbose:
 		logging.basicConfig(level=logging.DEBUG)
-	
+
 	log = logging.getLogger('dvi2svg')
-	
+
 	if not args:
 		log.info("Nothing to do.")
 		sys.exit()
@@ -645,7 +647,7 @@ if __name__ == '__main__':
 		dvi = find_file(dir, dvipred, enterdir=lambda p, l: False)
 		if dvi is not None:
 			return ('dvi', dvi)
-		
+
 		# SVG file? (output)
 		if filename.lower().endswith('.svg'):
 			return ('svg', filename[:-4])
@@ -653,10 +655,10 @@ if __name__ == '__main__':
 		# none, skipping
 		log.info("File '%s' not found, skipping" % filename)
 		return None
-		
+
 	tmp  = filter(bool, map(preprocess, args))
 	args = []
-	
+
 	prev = tmp[0]
 	for curr in tmp[1:] + [('dvi', None)]:
 		t2, f2 = curr
@@ -673,9 +675,9 @@ if __name__ == '__main__':
 				basename = os.path.split(utils.get_basename(f1))[1]
 				args.append( (f1, basename) )
 
-	
+
 	for filename, basename in args:
-	
+
 		#
 		# 1. Open file
 		#
@@ -683,10 +685,9 @@ if __name__ == '__main__':
 		log.info("Processing '%s' file -> '%s'", filename, basename)
 
 		#
-		# 2. Read DVI info	
+		# 2. Read DVI info
 		#
 		comment, (num, den, mag, u, l), page_offset, fonts = DVI_info(dvi)
-		n       = len(page_offset)
 		unit_mm = num/(den*10000.0)
 
 		if mag == 1000: # not scaled
@@ -698,13 +699,19 @@ if __name__ == '__main__':
 		# 3. Preload fonts
 		#
 
+
+		# (A) Table use to recode font numbers.  For example if DVI
+		# defines fonts 17, 18, 19, we use 0, 1, 2 -- it makes output
+		# file a bit shorter.
+		fntnum_recode = dict((k, i) for i, k in enumerate(fonts.keys()))
+
 		missing = []
 		for k in fonts:
 			_, s, d, fontname = fonts[k]
 			log.debug("Font %s=%s" % (k, fontname))
 			#print "Font %s=%s" % (k, fontname)
 			try:
-				font.create_DVI_font(fontname, k, s, d, setup.options.enc_methods)
+				font.create_DVI_font(fontname, fntnum_recode[k], s, d, setup.options.enc_methods)
 			except font.FontError, e:
 				log.error("Can't find font '%s': %s" % (fontname, str(e)))
 				missing.append((k, fontname))
@@ -716,7 +723,8 @@ if __name__ == '__main__':
 		#
 		# 4. process pages
 		#
-		if setup.options.pages == None:	# processing all pages
+		n = len(page_offset)
+		if setup.options.pages is None:	# processing all pages
 			pages = range(0, n)
 		else: # processing selected pages
 			try:
@@ -727,13 +735,8 @@ if __name__ == '__main__':
 				pages = [0]
 
 		# ok, write the file
-			
 		scale = unit_mm * 72.27/25.4
-		mag   = mag/1000.0
-		try:
-			mag *= float(setup.options.scale)
-		except ValueError:
-			pass
+		mag   = mag/1000.0 * setup.options.scale
 
 		if setup.options.generate_text:
 			SVGDocument = SVGTextDocument
@@ -761,6 +764,7 @@ if __name__ == '__main__':
 					svg.save(basename + ".svg")
 				else:
 					svg.save("%s%04d.svg" % (basename, pageno+1))
+	#for
 
 	sys.exit()
 
