@@ -11,6 +11,8 @@ log = logging.getLogger('dvi2svg')
 def parse_args(args=None):
 	parser = optparse.OptionParser()
 
+	parser.set_defaults(use_bbox=False)
+
 	parser.add_option(
 		"-p", "--pages",
 		help	= "Comma separated list of pages or page ranges\
