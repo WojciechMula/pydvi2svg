@@ -1,18 +1,19 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
+# $Id: dvi2svg.py,v 1.32 2007-03-12 22:24:31 wojtek Exp $
 #
-# pydvi2svg
-#
-# Main program
-# $Id: dvi2svg.py,v 1.31 2007-03-11 12:24:17 wojtek Exp $
+# pydvi2svg - main program
 #
 # license: BSD
 #
 # author: Wojciech Mu³a
 # e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republila.pl
 
 # changelog
 """
+12.03.2007
+	- disabled fntnum_recode (due to svgfrags conflict)
 11.03.2007
 	- added fntnum_recode table -- a bit shorter files
 10.03.2007
@@ -589,7 +590,8 @@ def convert_page(dvi, document):
 			z  = arg
 			v += arg
 		elif command == 'fnt_num':
-			fntnum = fntnum_recode[arg] # recode fntnum, see comment marked with (A)
+			#fntnum = fntnum_recode[arg] # recode fntnum, see comment marked with (A)
+			fntnum = arg
 		elif command == 'fnt_def':
 			pass		# fonts are already loaded, nothing to do
 		elif command == "pre":
@@ -702,7 +704,7 @@ if __name__ == '__main__':
 		# (A) Table use to recode font numbers.  For example if DVI
 		# defines fonts 17, 18, 19, we use 0, 1, 2 -- it makes output
 		# file a bit shorter.
-		fntnum_recode = dict((k, i) for i, k in enumerate(fonts.keys()))
+		#fntnum_recode = dict((k, i) for i, k in enumerate(fonts.keys()))
 
 		missing = []
 		for k in fonts:
@@ -710,7 +712,8 @@ if __name__ == '__main__':
 			log.debug("Font %s=%s" % (k, fontname))
 			#print "Font %s=%s" % (k, fontname)
 			try:
-				font.create_DVI_font(fontname, fntnum_recode[k], s, d, setup.options.enc_methods)
+				#font.create_DVI_font(fontname, fntnum_recode[k], s, d, setup.options.enc_methods)
+				font.create_DVI_font(fontname, k, s, d, setup.options.enc_methods)
 			except font.FontError, e:
 				log.error("Can't find font '%s': %s" % (fontname, str(e)))
 				missing.append((k, fontname))
