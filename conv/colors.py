@@ -1,23 +1,23 @@
-# pydvi2svg
+#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
+# $Id: colors.py,v 1.4 2007-03-12 23:30:33 wojtek Exp $
 #
-# (Partial) support for color.sty special
-# $Id: colors.py,v 1.3 2006-10-06 17:27:02 wojtek Exp $
-# 
+# pydvi2svg - process color.sty special
+#
 # license: BSD
 #
 # author: Wojciech Mu³a
 # e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl
 
-__changelog__ = '''
+# changelog
+"""
  3.10.2006
  	- added support for "color gray v"
 	- added function is_colorspecial & execute
  2.10.2006
  	- initial version
-'''
-
-from sys import stderr
+"""
 
 def is_colorspecial(special):
 	return special.startswith('color ')

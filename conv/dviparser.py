@@ -1,22 +1,24 @@
-# pydvi2svg
+#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
+# $Id: dviparser.py,v 1.6 2007-03-12 23:30:33 wojtek Exp $
 #
-# DVI releated function (tokenizer, getting basic info about document)
-# $Id: dviparser.py,v 1.5 2006-10-06 17:55:15 wojtek Exp $
-# 
+# pydvi2svg - DVI releated function (tokenizer, basic info about document)
+#
 # license: BSD
 #
 # author: Wojciech Mu³a
 # e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl
 
-__changelog__ = '''
+# changelog
+"""
  02.10.2006
  	- added dviinfo function
  25.09.2006
  	- fixed command number in get_token
  xx.09.2006
   	- first version (including binfile class, now moved out)
-'''
+"""
 
 def get_token(reader):
 	command = reader.uint8()
@@ -223,6 +225,7 @@ def get_token(reader):
 		return ("undefined", command)
 	else:
 		raise ValueError("command %d not recognized (it is implementation error!)" % command)
+
 
 def dviinfo(dvi):
 	old_pos = dvi.tell()

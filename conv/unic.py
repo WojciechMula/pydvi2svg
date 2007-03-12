@@ -1,5 +1,3 @@
-# 12.10.2006
-
 name_lookup = {
  'aring'	: u'\xe5',
  'turnstileleft'	: u'\u22a2',

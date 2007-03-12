@@ -1,15 +1,17 @@
-# pydvi2svg
+#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
+# $Id: encoding.py,v 1.7 2007-03-12 23:30:33 wojtek Exp $
 #
-# Encoding and ENC file support
-# $Id: encoding.py,v 1.6 2006-10-15 16:14:05 wojtek Exp $
-# 
+# pydvi2svg - encoding and ENC file support
+#
 # license: BSD
 #
 # author: Wojciech Mu³a
 # e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl
 
-__changelog__ = '''
+# changelog
+"""
  15.10.2006
  	- EncodingDB.load_encoding -- now try to open file, 
 	  then locate file in filesystem
@@ -18,7 +20,7 @@ __changelog__ = '''
 	- ENCFileError, EncodingDB
   3.10.2006
 	- read_ENC
-'''
+"""
 
 import os
 import findfile

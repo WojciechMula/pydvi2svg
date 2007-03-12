@@ -1,15 +1,17 @@
-# pydvi2svg
+#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
+# $Id: utils.py,v 1.6 2007-03-12 23:30:34 wojtek Exp $
 #
-# Some utils
-# $Id: utils.py,v 1.5 2007-03-06 20:41:08 wojtek Exp $
-# 
+# pydvi2svg - some utils
+#
 # license: BSD
 #
 # author: Wojciech Mu³a
 # e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl
 
-__changelog__ = '''
+# changelog
+"""
  6.03.2007
 	- +safe_float
  1.03.2007
@@ -21,7 +23,7 @@ __changelog__ = '''
 	- added parse_enc_methods
 13.10.2006
 	- added group_elements
-'''
+"""
 
 def group_elements(seq, value=lambda x: x):
 	"""

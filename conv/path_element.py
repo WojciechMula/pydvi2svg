@@ -1,15 +1,14 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
+# $Id: path_element.py,v 1.6 2007-03-12 23:30:34 wojtek Exp $
 #
-# pydvi2svg
+# pydvi2svg - SVG path data parser & bbox calculate
 #
-# SVG path data parser & bbox calculate
-# $Id: path_element.py,v 1.5 2007-03-08 07:44:14 wojtek Exp $
-# 
 # license: BSD
 #
 # author: Wojciech Mu³a
 # e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl
 
 # changelog
 """

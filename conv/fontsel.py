@@ -1,16 +1,17 @@
-# pydvi2svg
+#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
+# $Id: fontsel.py,v 1.19 2007-03-12 23:30:33 wojtek Exp $
 #
-# SVG font & char encoding utilities
-# $Id: fontsel.py,v 1.18 2007-03-11 12:22:12 wojtek Exp $
+# pydvi2svg - SVG fonts & char encoding utilities
 #
 # license: BSD
 #
 # author: Wojciech Mu³a
 # e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl
 
-# Changelog
-'''
+# changelog
+"""
  4.03.2007
 	- mftrace support
  3.03.2007
@@ -55,7 +56,7 @@
 		* unknown_fonts
  1.10.2006
  	- moved font releated functions from main program here
-'''
+"""
 
 import sys
 import re

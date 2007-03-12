@@ -1,3 +1,21 @@
+#!/usr/bin/python
+# -*- coding: iso-8859-2 -*-
+# $Id: cmdopts.py,v 1.4 2007-03-12 23:30:33 wojtek Exp $
+#
+# pydvi2svg - command line parsing
+#
+# license: BSD
+#
+# author: Wojciech Mu³a
+# e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl
+
+# changelog
+"""
+11.03.2007
+	+ new
+"""
+
 import optparse
 import logging
 

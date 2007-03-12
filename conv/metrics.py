@@ -1,15 +1,17 @@
-# pydvi2svg
+#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
+# $Id: metrics.py,v 1.5 2007-03-12 23:30:34 wojtek Exp $
 #
-# Reading TFM, MAP & AFM files
-# $Id: metrics.py,v 1.4 2006-10-15 16:16:54 wojtek Exp $
-# 
+# pydvi2svg - reading TFM, MAP & AFM files
+#
 # license: BSD
 #
 # author: Wojciech Mu³a
 # e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl
 
-__changelog__ = '''
+# changelog
+"""
  14.10.2006
  	- fixed bug in read_MAP
   5.10.2006
@@ -17,7 +19,7 @@ __changelog__ = '''
 	- read_MAP (not releated, but goes here)
   3.10.2006
 	- read_AFM, read_TFM
-'''
+"""
 
 class TFMError(Exception):
 	pass

@@ -1,16 +1,17 @@
-# pydvi2svg
+#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
+# $Id: findfile.py,v 1.4 2007-03-12 23:30:33 wojtek Exp $
 #
-# File searching functions
-# $Id: findfile.py,v 1.3 2006-11-13 19:12:48 wojtek Exp $
-# 
+# pydvi2svg - file searching functions
+#
 # license: BSD
 #
 # author: Wojciech Mu³a
 # e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl
 
-# Changelog
-'''
+# changelog
+"""
 13.11.2006
 	- +which
 16.10.2006
@@ -24,7 +25,7 @@
 	- locate, findfile (+ignorecase)
 3.10.2006
 	- kpsewhich, findfile
-'''
+"""
 
 import os
 import types
@@ -47,7 +48,7 @@ def find_file(paths, pred, enterdir=lambda path, depth: True):
 			if pred(path, file):
 				return os.path.join(path, file)
 
-		# not found, go deeper	
+		# not found, go deeper
 		for file in dir:
 			newpath = os.path.join(path, file)
 			if os.path.isdir(newpath) and enterdir(newpath, level):
@@ -56,7 +57,7 @@ def find_file(paths, pred, enterdir=lambda path, depth: True):
 					return result
 		return None
 
-	
+
 	if type(paths) in types.StringTypes:
 		return aux(paths, pred, enterdir, 0)
 	else:
@@ -64,6 +65,7 @@ def find_file(paths, pred, enterdir=lambda path, depth: True):
 			file = aux(path, pred, enterdir, 0)
 			if file:
 				return file
+
 
 def find_all_files(paths, pred, enterdir=lambda path, depth: True):
 	"""
@@ -84,12 +86,12 @@ def find_all_files(paths, pred, enterdir=lambda path, depth: True):
 			if pred(path, file):
 				list.append(os.path.join(path, file))
 
-		# go deepper	
+		# go deepper
 		for file in dir:
 			newpath = os.path.join(path, file)
 			if os.path.isdir(newpath) and enterdir(newpath, level):
 				aux(newpath, pred, enterdir, level+1, list)
-	
+
 	L = []
 	if type(paths) in types.StringTypes:
 		aux(paths, pred, enterdir, 0, L)
@@ -97,6 +99,7 @@ def find_all_files(paths, pred, enterdir=lambda path, depth: True):
 		for path in paths:
 			file = aux(path, pred, enterdir, 0, L)
 	return L
+
 
 kpsewhich_available = True
 def kpsewhich(filename):
@@ -115,10 +118,12 @@ def kpsewhich(filename):
 			return path
 	else:
 		return None
-	
+
+
 def locate(filename, search_paths=[]):
 	return kpsewhich(filename) or \
 	       find_file(search_paths, pred=lambda p, f: f==filename)
+
 
 try:
 	dirs = os.environ['PATH'].split(':')
@@ -130,5 +135,5 @@ def which(name):
 		fullpath = os.path.join(path, name)
 		if os.path.isfile(fullpath):
 			return fullpath
-	
+
 # vim: ts=4 sw=4

@@ -1,20 +1,22 @@
-# pydvi2svg
+#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
+# $Id: binfile.py,v 1.3 2007-03-12 23:30:33 wojtek Exp $
 #
-# Extension to built-in file
-# $Id: binfile.py,v 1.2 2006-10-06 17:54:05 wojtek Exp $
-# 
+# pydvi2svg - extension to built-in file
+#
 # license: BSD
 #
 # author: Wojciech Mu³a
 # e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl
 
-__changelog__ = '''
+# changelog
+"""
   6.10.2006
  	- moved from dviparser.py
  xx.09.2006
  	- first version
-'''
+"""
 
 from struct import unpack
 
