@@ -1,14 +1,28 @@
-# SVGfrags
+#!/usr/bin/python
+# -*- coding: iso-8859-2 -*-
+# $Id: svgfrags.py,v 1.7 2007-03-12 22:31:32 wojtek Exp $
 #
-# TODO:
+# SVGfrags - main program
+#
+# license: BSD
+#
+# author: Wojciech Mu³a
+# e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl/
 
 """
+12.03.2007
+	- use new parser (frags/parser.py & frags/parse_subst.py)
+	- syntax changes:
+	  * removed 'settowidth' & 'settoheight' (now can be expressed with 'scale')
+	  * removed 'fit' (now 'scale' option)
+	  * added ('length' num) to scale
 10.03.2007
-	- group by TeX expression
+	- share same TeX expression
 	- id based on file timestamp & string hash (to reasume purposes)
 	- keep old DVI & TeX fles
 	- EquationsManager updated (SVGGfxDocument was changed)
-	- colors inherit
+	- colors inherit from text nodes
 	- TeX-object space margin support
 	- options parse
  9.03.2007
@@ -63,7 +77,7 @@ class EquationsManager(dvi2svg.SVGGfxDocument):
 
 
 		# (TESTING)
-		"""
+		xmin, ymin, xmax, ymax = self.lastbbox
 		r = self.document.createElement('rect')
 		r.setAttribute('x', str(xmin))
 		r.setAttribute('y', str(ymin))
@@ -71,8 +85,8 @@ class EquationsManager(dvi2svg.SVGGfxDocument):
 		r.setAttribute('height', str(ymax - ymin))
 		r.setAttribute('fill', 'none')
 		r.setAttribute('stroke', 'red')
-		element.appendChild(r)
-		"""
+		r.setAttribute('stroke-width', '0.25')
+		g.appendChild(r)
 		#for
 	
 	def save(self, filename):
@@ -99,7 +113,7 @@ if __name__ == '__main__':
 	
 	# fixed options
 	setup.options.use_bbox  = True
-	setup.options.prettyXML = True
+	setup.options.prettyXML = False
 
 	input_txt = setup.options.input_txt
 	input_svg = setup.options.input_svg
@@ -188,12 +202,11 @@ if __name__ == '__main__':
 	# 2. Load & parse replace pairs
 	input = open(input_txt, 'r').read()
 
-	from frags.parser import parse
+	from frags.parse_subst import parse
 	repl_defs  = frags.Dict() # valid defs
 	text_nodes = set()        # text nodes to remove/hide
 	for item in parse(input):
-		(target, tex, px, py, margins, scale, stw, sth, fit) = item
-		kind, value = target
+		((kind, value), tex, options) = item
 
 		if kind == 'string':
 			if setup.options.frags_strip:
@@ -202,7 +215,7 @@ if __name__ == '__main__':
 			try:
 				for node in text_objects[value]:
 					text_nodes.add(node)
-					repl_defs[tex] = ((kind, node), ) + item[1:]
+					repl_defs[tex] = ((kind, node), tex, options)
 			except KeyError:
 				log.warning("String '%s' doesn't found in SVG, skipping repl", value)
 
@@ -211,15 +224,15 @@ if __name__ == '__main__':
 			if object:
 				if object.nodeName in ['rect', 'ellipse', 'circle']:
 					# "forget" id, save object
-					repl_defs[tex] = ((kind, object), ) + item[1:]
+					repl_defs[tex] = ((kind, object), tex, options)
 				elif object.nodeName == 'text':
-					repl_defs[tex] = (('string', object), ) + item[1:]
+					repl_defs[tex] = (('string', object), tex, options)
 				else:
 					log.warning("Object with id=%s is not text, rect, ellipse nor circle - skipping repl", value)
 			else:
 				log.warning("Object with id=%s doesn't found in SVG, skipping repl", value)
 
-		else: # point, rect -- no checks needed
+		else: # point, rect -- no additional tests needed
 			repl_defs[tex] = item
 
 
@@ -279,6 +292,23 @@ if __name__ == '__main__':
 	# 7. Substitute
 	eq_id_n = 0
 
+	# helper functions
+	def get_width(obj_id, default=0.0):
+		ref = XML.getElementById(obj_id)
+		if ref:
+			return frags.get_width(ref)
+		else:
+			log.error("Object id=%s doesn't exists", obj_id)
+			return default
+	
+	def get_height(obj_id, default=0.0):
+		ref = XML.getElementById(obj_id)
+		if ref:
+			return frags.get_height(ref)
+		else:
+			log.error("Object id=%s doesn't exists", obj_id)
+			return default
+
 	SVG = EquationsManager(XML, 1.25 * mag, scale, unit_mm)
 	for pageno, items in enumerate(repl_defs.values()):
 		dvi.seek(page_offset[pageno])
@@ -299,13 +329,21 @@ if __name__ == '__main__':
 			equation = SVG.lastpage
 			eq_id = None
 
-		for item in items:
-			((kind, value), tex, px, py, (mL, mR, mT, mB), scale, settowidth, settoheight, fit) = item
+		for ((kind, value), tex, options) in items:
+			px, py = options.position
+			
+			# bounding box of equation
 			(xmin, ymin, xmax, ymax) = SVG.lastbbox
-			xmin -= mL
-			xmax += mR
-			ymin -= mT
-			ymax += mB
+
+			# enlarge with margin values
+			xmin -= options.margin[0]
+			xmax += options.margin[1]
+			ymin -= options.margin[2]
+			ymax += options.margin[3]
+
+			# and calculate bbox's dimensions
+			dx = xmax - xmin
+			dy = ymax - ymin
 
 			if eq_id is not None:
 				# more then one reference, create new reference, node <use>
@@ -313,13 +351,13 @@ if __name__ == '__main__':
 				equation.setAttributeNS('xlink', 'xlink:href', '#'+eq_id)
 
 			
-			def put_equation(x, y, sx, sy=None):
+			def put_equation(x, y, sx, sy):
 				# calculate desired point in equation BBox
 				xo = xmin + (xmax - xmin)*px
 				yo = ymin + (ymax - ymin)*py
 
 				# move (xo,yo) to (x,y)
-				if sy is None: # sx == sy
+				if sx == sy:
 					equation.setAttribute(
 						'transform',
 						('translate(%s,%s)' % (SVG.c2s(x), SVG.c2s(y))) + \
@@ -339,14 +377,55 @@ if __name__ == '__main__':
 			# string or text object
 			if kind == 'string':
 				object = value
-				if settowidth or settoheight or fit:
-					log.warning("%s is a text object, can't set width/height nor fit", value)
+				if options.scale == 'fit':
+					log.warning("%s is a text object, can't fit to rectangle", value)
+					sx = sy = 1.0
+				else:
+					sx, sy = options.scale
+					if type(sx) is tuple:
+						kind, val = sx
+						sx = 1.0
+						if kind == 'width':
+							if val == 'this': pass # no scale
+							else: # XML id
+								sx = get_width(val[1][1:], dx)/dx
+						elif kind == "height":
+							if val == 'this': pass # no scale
+							else: # XML id
+								sx = get_height(val[1][1:], dx)/dx
+						elif kind == "length":
+							sx = val/dx
+					
+					if type(sy) is tuple:
+						kind, val = sy
+						sy = 1.0
+						if kind == 'width':
+							if val == 'this': pass # no scale
+							else: # XML id
+								sy = get_width(val[1][1:], dy)/dy
+						elif kind == "height":
+							if val == 'this': pass # no scale
+							else: # XML id
+								sy = get_height(val[1][1:], dy)/dy
+						elif kind == "length":
+							sy = val/dy
+				
+					if sx == "uniform":
+						sx = sy
+					if sy == "uniform":
+						sy = sx
+					
 
 				# get <text> object coords
 				x = frags.safe_float(object.getAttribute('x'))
 				y = frags.safe_float(object.getAttribute('y'))
+				c = XML.createElement("circle")
+				c.setAttribute("cx", str(x))
+				c.setAttribute("cy", str(y))
+				c.setAttribute("r",  "3")
+				c.setAttribute("fill", 'red')
 
-				put_equation(x, y, scale)
+				put_equation(x, y, sx, sy)
 
 				# copy fill color from text node
 				fill = object.getAttribute('fill') or \
@@ -357,14 +436,54 @@ if __name__ == '__main__':
 
 				# insert equation into XML tree
 				object.parentNode.insertBefore(equation, object)
+				object.parentNode.insertBefore(c, object)
 
 
 			# explicity given point
 			elif kind == 'point':
+				if options.scale == 'fit':
+					log.warning("%s is a text object, can't fit to rectangle", value)
+					sx = sy = 1.0
+				else:
+					sx, sy = options.scale
+					if type(sx) is tuple:
+						kind, val = sx
+						sx = 1.0
+						if kind == 'width':
+							if val == 'this': pass # no scale
+							else: # XML id
+								sx = get_width(val[1][1:], dx)/dx
+						elif kind == "height":
+							if val == 'this': pass # no scale
+							else: # XML id
+								sx = get_height(val[1][1:], dx)/dx
+						elif kind == "length":
+							sx = val/dx
+					
+					if type(sy) is tuple:
+						kind, val = sy
+						sy = 1.0
+						if kind == 'width':
+							if val == 'this': pass # no scale
+							else: # XML id
+								sy = get_width(val[1][1:], dy)/dy
+						elif kind == "height":
+							if val == 'this': pass # no scale
+							else: # XML id
+								sy = get_height(val[1][1:], dy)/dy
+						elif kind == "length":
+							sy = val/dy
+				
+					if sx == "uniform":
+						sx = sy
+					if sy == "uniform":
+						sy = sx
+				
+				
 				# insert equation into XML tree
 				x, y = value
 				XML.documentElement.appendChild(
-					put_equation(x, y, scale)
+					put_equation(x, y, sx, sy)
 				)
 
 			# rectangle or object with known bbox
@@ -383,51 +502,11 @@ if __name__ == '__main__':
 				y  = Ymin + (Ymax - Ymin)*py
 
 				# and set default scale
-				sx = scale * SVG.mag
-				sy = scale * SVG.mag
-
-					
-				# Set width and/or height
-				if settowidth is not None or settoheight is not None:
-
-					# value given by user
-					if type(settowidth) is float:
-						DX = abs(settowidth)
-
-					# width of other object
-					elif type(settowidth) is str and settowidth.startswith('#'):
-						ref = XML.getElementById(settowidth[1:])
-						if ref:
-							try:
-								DX = frags.get_width(ref)
-							except ValueError, e:
-								log.warning("Set to width ignored, bacause: '%s'", str(e))
-						else:
-							log.warning("Can't locate object %s", settowidth)
-
-				
-					# value given by user
-					if type(settoheight) is float:
-						DY = abs(settoheight)
-
-					# height of other object
-					elif type(settoheight) is str and settoheight.startswith('#'):
-						ref = XML.getElementById(settoheight[1:])
-						if ref:
-							try:
-								DY = frags.get_height(ref)
-							except ValueError, e:
-								log.warning("Set to height ignored, bacause: '%s'", str(e))
-						else:
-							log.warning("Can't locate object %s", settoheight)
-
-					if settowidth is not None:
-						sx = DX/(xmax - xmin)
-					if settoheight is not None:
-						sy = DY/(ymax - ymin)
+				sx = 1.0
+				sy = 1.0
 
 				# Fit in rectangle
-				elif fit:
+				if options.scale == 'fit':
 					tmp_x = DX/(xmax - xmin)
 					tmp_y = DY/(ymax - ymin)
 
@@ -435,6 +514,44 @@ if __name__ == '__main__':
 						sx = sy = tmp_x
 					else:
 						sx = sy = tmp_y
+				else:
+					sx, sy = options.scale
+					if type(sx) is tuple:
+						kind, val = sx
+						sx = 1.0
+						if kind == 'width':
+							if val == 'this':
+								sx = DX/dx
+							else: # XML id
+								sx = get_width(val[1][1:], dx)/dx
+						elif kind == "height":
+							if val == 'this':
+								sx = DX/dx
+							else: # XML id
+								sx = get_height(val[1][1:], dx)/dx
+						elif kind == "length":
+							sx = val/dx
+					
+					if type(sy) is tuple:
+						kind, val = sy
+						sy = 1.0
+						if kind == 'width':
+							if val == 'this':
+								sy = DY/dy
+							else: # XML id
+								sy = get_width(val[1][1:], dy)/dy
+						elif kind == "height":
+							if val == 'this':
+								sy = DY/dy
+							else: # XML id
+								sy = get_height(val[1][1:], dy)/dy
+						elif kind == "length":
+							sy = val/dy
+				
+					if sx == "uniform":
+						sx = sy
+					if sy == "uniform":
+						sy = sx
 				#endif
 
 				# move&scale equation
@@ -462,7 +579,6 @@ if __name__ == '__main__':
 		for node in text_nodes:
 			node.setAttribute('display', 'none')
 
-	
 	SVG.save(output_svg)
 	
 # vim: ts=4 sw=4 nowrap
