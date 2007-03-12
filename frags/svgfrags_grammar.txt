@@ -1,9 +1,10 @@
 required:
+
 1. ( quoted_string | #id | rect(x, y, w, h) | point(x, y) ),
 2. ( "->" | "=>" | "=" ),
 3. quoted_string
 
-optional (order mattes):
+optional (order is important):
 
 4. "position"  ":" px ["," py]
 5. "scale"    ":" ("fit" | scaledim ["," scaledim])
