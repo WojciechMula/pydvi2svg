@@ -1,3 +1,22 @@
+# -*- coding: iso-8859-2 -*-
+#
+# part of SVGfrags - simple parser
+#
+# Main program
+# $Id: parser.py,v 1.4 2007-03-12 22:20:19 wojtek Exp $
+#
+# license: BSD
+#
+# author: Wojciech Mu³a
+# e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl/
+
+# changelog:
+"""
+11-12.03.2007
+	- first version
+"""
+
 import re
 RegularExpressionType = type(re.compile(' '))
 
@@ -210,148 +229,5 @@ class infty(seq):
 			return (length, matches)
 		else:
 			return None
-
-
-########################################################################
-
-space 	= re.compile(r'\s+')
-comment	= re.compile('\s*%.*\n')
-
-seq.ws = infty(space, comment)
-
-def number_cb(l, s, r):
-	return [float(r[0])]
-number = token(number_cb, re.compile(r'([+-]?\d*\.\d+|[+-]?\d+\.\d*|[-+]?\d+)'))
-
-
-def numorperc_cb(l, s, r):
-	if len(r) == 2:
-		# perc
-		return [('%', r[0])]
-	else:
-		return r
-numorperc = glued(numorperc_cb, number, optional("(%)"))
-
-def quoted_string_cb(l, s, r):
-	return [r[0].replace('\\"', '"')]
-quoted_string = token(quoted_string_cb, re.compile(r'"((?:\\"|[^"])*)"'))
-
-def xml_id_cb(l, s, r):
-	return [('id', r[0])]
-xml_id = token(xml_id_cb, re.compile(r'#([a-zA-Z0-9._:-]+)'))
-
-def rect_cb(l, s, r):
-	return [tuple(r)]
-rect = seq(rect_cb, "rect", "(", number, ",", number, ",", number, ",", number, ")")
-
-def point_cb(l, s, r):
-	return [tuple(r)]
-point = seq("point", "(", number, ",", number, ")")
-
-
-def margins_cb(l, s, r):
-	if len(r) == 1:
-		m = r[0]
-		return [(m, m, m, m)]
-	elif len(r) == 2:
-		mx, my = r
-		return [(mx, mx, my, my)]
-	else: # 4 elements
-		return [tuple(r)]
-
-margins = seq(margins_cb,
-	"margins", ":", numorperc,
-	 optional(",", numorperc, optional(",", numorperc, ",", numorperc))
-)
-
-# number|perc|width(id)|height(id)
-def wh_cb(l, s, r):
-	wh, (_, id) = r
-	return [(wh, id)]
-scaledim = alt(numorperc, number, seq(wh_cb, alt("(width)", "(height)"), "(", xml_id, ")"))
-
-# scale: fit | (scaledim [, scaledim])
-def scale_cb(l, s, r):
-	if len(r) == 1: # fit/one scaledim
-		return [('scale', r[0])]
-	else: # two scaledim
-		return [('scale', r[0], r[1])]
-scale = seq(scale_cb,
-	"scale", ":", alt("(fit)", seq(scaledim, optional(",", scaledim)))
-)
-
-def setdim_cb(l, s, r):
-	return [tuple(r)]
-setdim  = alt(number, xml_id, "(this)")
-setwidth  = seq(setdim_cb, "(setwidth)", ":", setdim)
-setheight = seq(setdim_cb, "(setheight)", ":", setdim)
-
-def position_cb(l, s, r):
-	PX = {'center':0.5, 'c':0.5, 'left':0.0, 'l':0.0, 'right':1.0,  'r':1.0}
-	PY = {'center':0.5, 'c':0.5, 'top':0.0,  't':0.0, 'bottom':1.0, 'b':1.0}
-	if len(r) == 1: # single argument
-		py = 0.5
-		px = r[0]
-		if type(px) is str:
-			px = PX[px]
-		elif type(px) is tuple: # ('%', float)
-			px = px[1] * 0.01
-
-		return [('position', px, py)]
-	else: # two args
-		px = r[0]
-		if type(px) is str:
-			px = PX[px]
-		elif type(px) is tuple: # ('%', float)
-			px = px[1] * 0.01
-		
-		py = r[1]
-		if type(py) is str:
-			py = PY[py]
-		elif type(py) is tuple: # ('%', float)
-			py = py[1] * 0.01
-
-		return [('position', px, py)]
-		
-
-position = seq(position_cb, 
-	"position", ":",
-	
-	alt(numorperc, number, "(center)", "(c)", "(left)", "(l)", "(right)", "(r)"),
-	optional(
-		",", alt(numorperc, number, "(center)", "(c)", "(top)", "(t)", "(bottom)", "(b)")
-	)
-)
-
-subst = seq(
-	alt(quoted_string, xml_id, rect, point),
-	eat(token(re.compile(r'(?:->|=>|=)'))),
-	quoted_string,
-	
-	optional(position),
-	optional(margins),
-	optional(
-		alt(
-			scale,
-			seq(optional(setwidth), optional(setheight)),
-		)
-	)
-)
-
-#print scale.match("  scale   :     150% ,       width(    #aaa )   ")
-#print rect.match("rect(10,50,10,20)")
-#print point.match("point(10,50)")
-#print margins.match("   margins   : 10.0, 20,  40,  50")
-#print margins.match("   margins   : 10.0")
-#print margins.match("   margins   : 10.0, 20.0")
-print position.match("    position  :   -.5,    bottom  ")
-print subst.match("""
-% sample comment
-	rect(10, 20, 30, 50) -> % and another
-	"text"
-	position: 60%, bottom
-	setwidth: this
-	setheight: #aabb
-""")
 
 # vim: ts=4 sw=4 nowrap
