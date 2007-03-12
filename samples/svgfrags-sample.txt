@@ -1,0 +1,53 @@
+% set title
+"TeX & LaTeX" => "\TeX\ \& \LaTeX"
+	scale: 4
+
+"equation1" => "$\sin x + \cos y = 1$"
+	scale: 3
+
+"equation2" => "$f(x) = \frac{x^3 - 5}{x^2 + 4} \cdot \frac{1}{x}$"
+	scale: 3
+
+"left" => "left"
+	position: left
+	scale: uniform, length 20
+
+"center" => "center"
+	position: center
+	scale: uniform, length 20
+
+"right" => "right"
+	position: right
+	scale: uniform, length 20
+
+"top" => "top"
+	position: left, top
+	scale: uniform, length 20
+
+"center2" => "center"
+	position: left, center
+	scale: uniform, length 20
+
+"bottom" => "bottom"
+	position: left, bottom
+	scale: uniform, length 20
+
+#title => "\LaTeX/\TeX\ \& \texttt{SVGfrags}"
+	position: center, center
+	margin: 1
+	scale: fit
+
+#scaletowidth => "\[P(t) = \sum_{i=0}^n p_i B_i^n (t)\]"
+	scale: width(this)
+
+#scaletoheight => "\[\frac{1}{\frac{1}{\frac{1}{x}}}\]"
+	position: 0.7
+	scale: uniform, height(this)
+
+#nonuniform => "\[\frac{1}{x^2 + 1} + \frac{\sin x}{\log_2 x}\]"
+	scale: width(this), height(this)
+
+#settowidth => "$\sin x$"
+	scale: width(#scaletowidth), height(#nonuniform)
+
+% eof
