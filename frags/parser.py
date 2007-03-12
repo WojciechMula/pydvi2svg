@@ -1,27 +1,55 @@
 import re
 
-CONSUME = True
+CONSUME	= True
+regexp	= type(re.compile(' '))
+
+def consume(expr):
+	return token(expr, consume=True)
 
 class token(object):
-	def __init__(self, expr, eat=False):
-		self.expr = expr
-		self.eat  = bool(eat)
 	
+	every_token = None
+
+	def __init__(self, expr, consume=False, fireeverytoken=True):
+		if type(expr) is str:
+			# (word) -> return word
+			if not expr:
+				raise ValueError("Empty token!")
+			if len(expr) > 2 and expr[0] == '(' and expr[-1] == ')':
+				self.expr    = expr[1:-1]
+				self.consume = False
+			else:
+				self.expr    = expr
+				self.consume = True
+
+		elif type(expr) is regexp:
+			self.expr    = expr
+			self.consume = bool(consume)
+
+		else:
+			self.expr    = expr
+			self.consume = bool(consume)
+	
+		self.fireeverytoken = bool(fireeverytoken)
+
+
 	def match(self, s):
 		L = 0
-		m = space.match(s)
-		if m: L += m.end()
+		if self.fireeverytoken and token.every_token is not None:
+			while True:
+				for e in token.every_token:
+					m = e.match(s)
+					if m:
+						L = L + m.end()
+						s = s[m.end():]
+						break
+				else:
+					break
+
 		
-		m = comment.match(s)
-		if m: L += m.end()
-
-		if L:
-			s = s[L:]
-
 		m = None
 		if isinstance(self.expr, token):
 			m = self.expr.match(s)
-
 		elif type(self.expr) is str:
 			if s.startswith(self.expr):
 				m = (len(self.expr), [self.expr])
@@ -34,32 +62,29 @@ class token(object):
 					m = (m.end(), [])
 
 		if m is not None:
-			if self.eat:
+			if self.consume:
 				return (L+m[0], [])
 			else:
 				return (L+m[0], m[1])
-
-
-class required(token):
-	def __init__(self, expr, eat=False):
-		super(required, self).__init__(expr, eat)
-		if type(expr) is str:
-			self.expr = token(expr)
-		else:
-			self.expr = expr
-
-literal = required
 	
-class optional(required):
+class rule(object):
+	pass
+
+class optional(rule):
+	# match 0 or 1
+	def __init__(self, *expr):
+		if len(expr) == 1:
+			self.expr = token(expr[0])
+		else:
+			self.expr = seq(*expr)
 	
 	def match(self, s):
-		m = super(optional, self).match(s)
+		m = self.expr.match(s)
 		if m:
 			return m
 		else:
 			return (0, "")
 
-regexp = type(re.compile(' '))
 class seq(token):
 	def __init__(self, *exprlist):
 		self.expr = []
@@ -73,7 +98,7 @@ class seq(token):
 		t = 0
 		for subexpr in self.expr:
 			try:
-				l, ss = m = subexpr.match(s)
+				l, ss = subexpr.match(s)
 				s = s[l:]
 				r.extend(ss)
 				t += l
@@ -126,124 +151,57 @@ number			= re.compile(r'([+-]?\d*\.\d+|[+-]?\d+\.\d*|[-+]?\d+)')
 xml_id			= re.compile(r'(#[a-zA-Z0-9._:-]+)')
 comment			= re.compile('\s*%.*\n')
 
-numorperc	= seq(required(number), optional("%"))
+numorperc	= seq(number, optional("(%)"))
 
-rect		= seq(
-				required("rect"),
-				required("(", CONSUME),
-				required(number),
-				required(",", CONSUME),
-				required(number),
-				required(",", CONSUME),
-				required(number),
-				required(",", CONSUME),
-				required(number),
-				required(")", CONSUME),
-			)
-
-point		= seq(
-				required("point"),
-				required("(", CONSUME),
-				required(number),
-				required(",", CONSUME),
-				required(number),
-				required(")", CONSUME),
-			)
-
-margins		= seq(
-				required("margins", CONSUME),
-				required(":", CONSUME),
-
-				required(numorperc),
-				optional(seq(
-					required(",", CONSUME),
-					required(numorperc),
-					optional(seq(
-						required(",", CONSUME),
-						required(numorperc),
-						required(",", CONSUME),
-						required(numorperc),
-					))
-				))
-			)
-
-# number|perc|width(id)|height(id)
-scaledim	= alt(
-		required(numorperc),
-		required(number),
-		seq(
-			alt(literal("width"), literal("height")),
-			literal("(", CONSUME),
-			required(xml_id),
-			literal(")", CONSUME)
-		),
-	)
-
-setdim = alt(
-		required(number),
-		required(xml_id),
-		literal("this"),
-	)
-
-# scale: number[%]
-scale		= seq(
-		required("scale", CONSUME),
-		required(":", CONSUME),
-		alt(
-			literal("fit"),
-			seq(
-				required(scaledim),
-				optional(seq(
-					required(",", CONSUME),
-					required(scaledim)
-				))
-			)
-		)
-	)
-
-position = seq(
-	optional(space),
-	required("position", CONSUME),
-	optional(space),
-	required(":", CONSUME),
-	optional(space),
-
-	required(
-		alt( 
-			seq(required(number), optional("%")),
-			literal("center"), literal("c"),
-			literal("left"),   literal("l"),
-			literal("right"),  literal("r"),
-		)
-	),
-
-	optional(seq(
-		required(",", CONSUME),
-		alt( 
-			seq(required(number), optional("%")),
-			literal("center"), literal("c"),
-			literal("top"),    literal("t"),
-			literal("bottom"), literal("b"),
-		)
-	))
+rect = seq("rect", "(", number, ",", number, ",", number, ",", number, ")")
+point = seq("point", "(", number, ",", number, ")")
+margins = seq(
+	"margins", ":", numorperc,
+	 optional(",", numorperc, optional(",", numorperc, ",", numorperc))
 )
 
-subst = required(seq(
-	alt(quoted_string, xml_id, rect, point),
-	required(arrows, CONSUME),
-	required(quoted_string),
-))
+# number|perc|width(id)|height(id)
+scaledim = alt(numorperc, number, seq(alt("width", "height"), "(", xml_id, ")"))
 
-#print scale.match("   scale:  123% ")
+# scale: fit | (scaledim [, scaledim])
+scale = seq("scale", ":", alt("(fit)", seq(scaledim, optional(",", scaledim))))
+
+setdim  = alt(number, xml_id, "(this)")
+setwidth  = seq("setwidth", ":", setdim)
+setheight = seq("setheight", ":", setdim)
+
+position = seq(
+	"position", ":",
+	
+	alt(numorperc, number, "(center)", "(c)", "(left)", "(l)", "(right)", "(r)"),
+	optional(
+		",", alt(numorperc, number, "(center)", "(c)", "(top)", "(t)", "(bottom)", "(b)")
+	)
+)
+
+subst = seq(
+	alt(quoted_string, xml_id, rect, point),
+	consume(arrows),
+	quoted_string,
+	
+	optional(position),
+	optional(margins),
+	optional(
+		alt(
+			scale,
+			optional(setwidth),
+			optional(setheight),
+		)
+	)
+)
+
+token.every_token = [space, comment]
+
+#print scale.match("   scale: fit ")
 #print rect.match("   rect  (  10, 50,  10, 20 ) ")
 #print point.match("   point  (  10, 50 ) ")
 #print margins.match(  " margins: 10, 20, 40, 50  ")
 #print position.match("  position :  -.5, 100%  ")
-#print subst.match('  rect(10, 20, 30, 50) -> "text" ')
-
-a = seq(required(",", CONSUME), required(number))
-
-s = "     scale  :   width(#ccc)     ,              width(#aaa)"
-print scale.match(s)
+print subst.match('  rect(10, 20, 30, 50) -> "text" scale: 10, width ( #a51 ) ')
 
 # vim: ts=4 sw=4
