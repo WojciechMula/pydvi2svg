@@ -1,13 +1,22 @@
 ========================================================================
-                            pydvi2svg
+                      pydvi2svg & SVGfrags
 ========================================================================
 
-Last update: 7.03.2007
+Last update: 12.03.2007
 
 .. contents:: Contents
 
+
 News
 ------------------------------------------------------------------------
+
+12.03.2007
+
+	* Beta version of SVGfrags!
+	* **pl**: Na razie usuwam polsk± dokumentacjê, bo siê trochê
+	  zdezaktualizowa³a, a naprawdê s± ciekawsze rzeczy od jej
+	  pisania.
+
 
 7.03.2007
 
@@ -83,7 +92,32 @@ __ fnt2meta.c
 
 .. include:: index.en
 
-.. include:: index.pl
+.. include:: index.frags
+
+
+License
+~~~~~~~
+
+* Both **programs**, i.e. ``pydvi2svg`` & ``SVGfrags`` are licensed
+  under BSD_ license.
+* Fonts keep their licenses and copyrights.  I putted in here
+  in a other format to make user's live bit easier.
+
+
+Remarks, errors, patches
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Please send to author any remarks, bugs, patches, questions, etc.:
+
+	Wojciech Mu³a, wojciech_mula@poczta.onet.pl
+
+
+
+.. _Fontforge:	http://fontforge.sourceforge.net/
+.. _Python:	    http://www.python.org/
+.. _SVG:	    http://www.w3.org/TR/SVG/
+.. _Inkscape:   http://www.inkscape.org/
+.. _BSD:        http://www.opensource.org/licenses/bsd-license.php
 
 
 ..
