@@ -44,10 +44,10 @@ def parse_args(args=None):
 	)
 
 	parser.add_option(
-		"---keep-dvi",
+		"--keep-dvi",
 		help	= "Do not remove temporary DVI files.  By default they are keep, and can be re-use",
 		dest	= "frags_keepdvi",
-		action	= "store_false",
+		action	= "store_true",
 		default	= False,
 	)
 
