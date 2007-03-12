@@ -1,0 +1,68 @@
+``SVGfrags``
+------------------------------------------------------------------------
+
+``SVGfrags`` is utility build on top of ``pydvi2svg``, that 
+includes pieces of TeX/LaTeX expressions into existing SVG file.
+It works similar to well known ``psfrags`` LaTeX package.
+
+User indicate SVG target by:
+
+* strings --- all occurences are replaced
+* ID of existing text nodes
+* points --- direct given coordinates
+
+User can also place TeX expression within[1] rectangles:
+
+* ID of existing rectangle (and also circle/ellipse) nodes
+* direct given coordinats/size
+
+[1] In fact there is no limits --- but it is good to think
+that we "enclose" expression in rectangles
+
+While text nodes are removed or hide, rectangles are not touched.
+
+
+Syntax
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Warning**: Syntax is not frozen, it can change (I have some new
+ideas...).
+
+.. include:: frags/svgfrags_grammar.txt
+	:literal:
+
+
+position
+^^^^^^^^^^^^^^^^^^^^
+
+Parameter ``position`` tells where bounding box of TeX expression.
+
+
+
+
+Default values: **0.0, 1.0**, i.e. ``left``, ``bottom``.
+
+
+margin
+^^^^^^^^^^^^^^^^^^^^
+
+Additional margins around bounding bbox of TeX exprssion.
+Applied **before** scalling!
+
+
+scale
+^^^^^^^^^^^^^^^^^^^^
+
+
+
+
+Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: samples/svgfrags-sample.txt
+
+.. image:: samples/svgfrags-sample.png
+
+.. image:: samples/svgfrags-sample-res.png
+
+.. image:: samples/svgfrags-sample-res-clean.txt
