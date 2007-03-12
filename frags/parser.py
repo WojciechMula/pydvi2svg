@@ -1,176 +1,320 @@
 import re
+RegularExpressionType = type(re.compile(' '))
 
-CONSUME	= True
-regexp	= type(re.compile(' '))
-
-def consume(expr):
-	return token(expr, consume=True)
-
-class token(object):
-	
-	every_token = None
-
-	def __init__(self, expr, consume=False, fireeverytoken=True):
-		if type(expr) is str:
-			# (word) -> return word
-			if not expr:
-				raise ValueError("Empty token!")
-			if len(expr) > 2 and expr[0] == '(' and expr[-1] == ')':
-				self.expr    = expr[1:-1]
-				self.consume = False
-			else:
-				self.expr    = expr
-				self.consume = True
-
-		elif type(expr) is regexp:
-			self.expr    = expr
-			self.consume = bool(consume)
-
+def preprocess(*expr):
+	"""
+	Gets expression or pair (callback, expression) and
+	depending of expression type return proper rule instance.
+	"""
+	if len(expr) == 2:
+		if callable(expr[0]):
+			callback, expr = expr
 		else:
-			self.expr    = expr
-			self.consume = bool(consume)
-	
-		self.fireeverytoken = bool(fireeverytoken)
+			raise ValueError("First argument must be callable")
+	elif len(expr) == 1:
+		expr = expr[0]
+		callback = None
+	else:
+		raise ValueError("Too many arguments; 1 or 2 allowed")
 
 
-	def match(self, s):
-		L = 0
-		if self.fireeverytoken and token.every_token is not None:
-			while True:
-				for e in token.every_token:
-					m = e.match(s)
-					if m:
-						L = L + m.end()
-						s = s[m.end():]
-						break
-				else:
-					break
-
-		
-		m = None
-		if isinstance(self.expr, token):
-			m = self.expr.match(s)
-		elif type(self.expr) is str:
-			if s.startswith(self.expr):
-				m = (len(self.expr), [self.expr])
-		else: # regexp
-			m = self.expr.match(s)
-			if m:
-				try:
-					m = (m.end(), [m.groups()[0]])
-				except IndexError:
-					m = (m.end(), [])
-
-		if m is not None:
-			if self.consume:
-				return (L+m[0], [])
+	# string: if string is enclosed in () is returned
+	# otherwise is eaten
+	if type(expr) is str:
+		if len(expr) > 2 and expr[0] == '(' and expr[-1] == ')':
+			if len(expr) > 3:
+				return string(expr[1:-1], callback)
 			else:
-				return (L+m[0], m[1])
+				return char(expr[1:-1], callback)
+		else:
+			if len(expr) == 1:
+				return eat(char(expr, callback))
+			else:
+				return eat(string(expr, callback))
+
+	# regexp
+	elif type(expr) is RegularExpressionType:
+		return regexp(expr, callback)
 	
+	# rule instance
+	elif isinstance(expr, rule):
+		if callback is not None:  # set callback if wasn't set
+			expr.callback = callback
+		return expr
+	
+	else:
+		raise ValueError("Don't know how to deal with %s (%s)" % (str(expr), type(expr)))
+
+token = preprocess
+
 class rule(object):
-	pass
+	"Base class for parser"
+	def __init__(self, expr, callback=None):
+		assert callback is None or callable(callback), "Callback have to be callable or None"
+		self.expr     = expr
+		self.callback = callback
+		
+	def match(self, string):
+		try:
+			length, matched = self.get(string)
+			if self.callback is not None:
+				matched = self.callback(string, length, matched)
+
+			return (length, matched)
+		except TypeError:
+			return None
+	
+	def get(self, string):
+		raise RuntimeError("Abstract method called")
+
+
+class char(rule):
+	"Matches single char"
+	def get(self, string):
+		try:
+			if self.expr == string[0]:
+				return (1, [self.expr])
+		except IndexError:
+			pass # empty string
+			
+
+class string(rule):
+	"Matches string"
+	def get(self, str):
+		if str.startswith(self.expr):
+			return (len(self.expr), [self.expr])
+
+
+class regexp(rule):
+	"Matches regular expression"
+	def get(self, string):
+		match = self.expr.match(string)
+		if match:
+			if len(match.groups()) == 1:
+				return (match.end(), [match.groups()[0]])
+			elif len(match.groups()) > 1:
+				return (match.end(), [match.groups()])
+			else:
+				return (match.end(), [])
+
+
+class eat(rule):
+	"Matches anything, but returns no data"
+	def get(self, string):
+		try:
+			length, matched = self.expr.match(string)
+			return (length, [])
+		except TypeError:
+			pass # no match
+
+
+class seq(rule):
+	"""
+	Matches ALL expressions from the list.
+	Optional ws rule is consumed before processing
+	every expression list.
+	"""
+
+	def __init__(self, *expr):
+		if len(expr) > 1 and callable(expr[0]):
+			self.callback = expr[0]
+			expr = expr[1:]
+		else:
+			self.callback = None
+		
+		self.expr = [preprocess(e) for e in expr]
+	
+	ws = []
+
+	def eat_ws(self, string):
+		if seq.ws:
+			try:
+				length, matched = seq.ws.match(string)
+				if length > 0:
+					return (length, string[length:])
+			except TypeError:
+				pass
+
+		return (0, string)
+	
+	def get(self, string):
+		length  = 0
+		matched = []
+		for expr in self.expr:
+			try:
+				l, string = self.eat_ws(string)
+				length = length + l
+
+				l, m   = expr.match(string)
+				length = length + l
+				string = string[l:]
+				matched.extend(m)
+			except TypeError:
+				return None # not all expression matches
+
+		return (length, matched)
+
+
+class glued(seq):
+	"Like seq, but ws is not processed, even if present"	
+	def eat_ws(self, string):
+		return (0, string)
+
 
 class optional(rule):
-	# match 0 or 1
+	"Matches 0 or 1 times"
 	def __init__(self, *expr):
-		if len(expr) == 1:
-			self.expr = token(expr[0])
-		else:
+		self.callback = None
+		if len(expr) > 1:
 			self.expr = seq(*expr)
-	
-	def match(self, s):
-		m = self.expr.match(s)
-		if m:
-			return m
 		else:
-			return (0, "")
+			self.expr = preprocess(*expr)
 
-class seq(token):
-	def __init__(self, *exprlist):
-		self.expr = []
-		for expr in exprlist:
-			if type(expr) in [str, regexp]:
-				expr = token(expr)
-			self.expr.append(expr)
-		
-	def match(self, s):
-		r = []
-		t = 0
-		for subexpr in self.expr:
-			try:
-				l, ss = subexpr.match(s)
-				s = s[l:]
-				r.extend(ss)
-				t += l
-			except TypeError:
-				return None
-
-		return (t, r)
+	def get(self, string):
+		try:
+			length, matched = self.expr.match(string)
+			return (length, matched)
+		except TypeError:
+			return (0, []) # no match
 
 class alt(seq):
-	def match(self, s):
-		for subexpr in self.expr:
-			m = subexpr.match(s)
-			if m: return m
+	"Matches FIRST expressions from the list"
+	def get(self, string):
+		for expr in self.expr:
+			try:
+				length, matched = expr.match(string)
+				return (length, matched)
+			except TypeError:
+				pass
 
-class repeat(token):
-	def __init__(self, count, expr):
-		super(repeat, self).__init__(expr)
-		self.count = max(0, count)
-	
-	def match(self, s):
-		r = []
-		t = 0
-		if self.count == 0:
-			while True:
-				m = self.expr.match(s)
-				if m:
-					l, ss = m
-					s = s[l:]
-					r.extend(ss)
-					t += l
-				else:
-					return (t, r)
+class infty(seq):
+	"While any of expression from the list matches, consume input"
+	def get(self, string):
+		matches = []
+		length  = 0
+		while True:
+			for expr in self.expr:
+				try:
+					l, m = expr.match(string)
+					length += l
+					string  = string[l:]
+					matches.extend(m)
+					break
+				except TypeError:
+					pass
+			else:
+				# no matches
+				break
+
+		if length:
+			return (length, matches)
 		else:
-			for i in xrange(self.count):
-				m = self.expr.match(s)
-				if m:
-					l, ss = m
-					s = s[l:]
-					r.extend(ss)
-					t += l
-				else:
-					return None
-			return (t, r)
+			return None
 
 
-quoted_string	= re.compile(r'"((?:\\"|[^"])*)"')
-arrows			= re.compile(r'(?:->|=>|=)')
-space 			= re.compile(r'\s+')
-number			= re.compile(r'([+-]?\d*\.\d+|[+-]?\d+\.\d*|[-+]?\d+)')
-xml_id			= re.compile(r'(#[a-zA-Z0-9._:-]+)')
-comment			= re.compile('\s*%.*\n')
+########################################################################
 
-numorperc	= seq(number, optional("(%)"))
+space 	= re.compile(r'\s+')
+comment	= re.compile('\s*%.*\n')
 
-rect = seq("rect", "(", number, ",", number, ",", number, ",", number, ")")
+seq.ws = infty(space, comment)
+
+def number_cb(l, s, r):
+	return [float(r[0])]
+number = token(number_cb, re.compile(r'([+-]?\d*\.\d+|[+-]?\d+\.\d*|[-+]?\d+)'))
+
+
+def numorperc_cb(l, s, r):
+	if len(r) == 2:
+		# perc
+		return [('%', r[0])]
+	else:
+		return r
+numorperc = glued(numorperc_cb, number, optional("(%)"))
+
+def quoted_string_cb(l, s, r):
+	return [r[0].replace('\\"', '"')]
+quoted_string = token(quoted_string_cb, re.compile(r'"((?:\\"|[^"])*)"'))
+
+def xml_id_cb(l, s, r):
+	return [('id', r[0])]
+xml_id = token(xml_id_cb, re.compile(r'#([a-zA-Z0-9._:-]+)'))
+
+def rect_cb(l, s, r):
+	return [tuple(r)]
+rect = seq(rect_cb, "rect", "(", number, ",", number, ",", number, ",", number, ")")
+
+def point_cb(l, s, r):
+	return [tuple(r)]
 point = seq("point", "(", number, ",", number, ")")
-margins = seq(
+
+
+def margins_cb(l, s, r):
+	if len(r) == 1:
+		m = r[0]
+		return [(m, m, m, m)]
+	elif len(r) == 2:
+		mx, my = r
+		return [(mx, mx, my, my)]
+	else: # 4 elements
+		return [tuple(r)]
+
+margins = seq(margins_cb,
 	"margins", ":", numorperc,
 	 optional(",", numorperc, optional(",", numorperc, ",", numorperc))
 )
 
 # number|perc|width(id)|height(id)
-scaledim = alt(numorperc, number, seq(alt("width", "height"), "(", xml_id, ")"))
+def wh_cb(l, s, r):
+	wh, (_, id) = r
+	return [(wh, id)]
+scaledim = alt(numorperc, number, seq(wh_cb, alt("(width)", "(height)"), "(", xml_id, ")"))
 
 # scale: fit | (scaledim [, scaledim])
-scale = seq("scale", ":", alt("(fit)", seq(scaledim, optional(",", scaledim))))
+def scale_cb(l, s, r):
+	if len(r) == 1: # fit/one scaledim
+		return [('scale', r[0])]
+	else: # two scaledim
+		return [('scale', r[0], r[1])]
+scale = seq(scale_cb,
+	"scale", ":", alt("(fit)", seq(scaledim, optional(",", scaledim)))
+)
 
+def setdim_cb(l, s, r):
+	return [tuple(r)]
 setdim  = alt(number, xml_id, "(this)")
-setwidth  = seq("setwidth", ":", setdim)
-setheight = seq("setheight", ":", setdim)
+setwidth  = seq(setdim_cb, "(setwidth)", ":", setdim)
+setheight = seq(setdim_cb, "(setheight)", ":", setdim)
 
-position = seq(
+def position_cb(l, s, r):
+	PX = {'center':0.5, 'c':0.5, 'left':0.0, 'l':0.0, 'right':1.0,  'r':1.0}
+	PY = {'center':0.5, 'c':0.5, 'top':0.0,  't':0.0, 'bottom':1.0, 'b':1.0}
+	if len(r) == 1: # single argument
+		py = 0.5
+		px = r[0]
+		if type(px) is str:
+			px = PX[px]
+		elif type(px) is tuple: # ('%', float)
+			px = px[1] * 0.01
+
+		return [('position', px, py)]
+	else: # two args
+		px = r[0]
+		if type(px) is str:
+			px = PX[px]
+		elif type(px) is tuple: # ('%', float)
+			px = px[1] * 0.01
+		
+		py = r[1]
+		if type(py) is str:
+			py = PY[py]
+		elif type(py) is tuple: # ('%', float)
+			py = py[1] * 0.01
+
+		return [('position', px, py)]
+		
+
+position = seq(position_cb, 
 	"position", ":",
 	
 	alt(numorperc, number, "(center)", "(c)", "(left)", "(l)", "(right)", "(r)"),
@@ -181,7 +325,7 @@ position = seq(
 
 subst = seq(
 	alt(quoted_string, xml_id, rect, point),
-	consume(arrows),
+	eat(token(re.compile(r'(?:->|=>|=)'))),
 	quoted_string,
 	
 	optional(position),
@@ -189,19 +333,25 @@ subst = seq(
 	optional(
 		alt(
 			scale,
-			optional(setwidth),
-			optional(setheight),
+			seq(optional(setwidth), optional(setheight)),
 		)
 	)
 )
 
-token.every_token = [space, comment]
+#print scale.match("  scale   :     150% ,       width(    #aaa )   ")
+#print rect.match("rect(10,50,10,20)")
+#print point.match("point(10,50)")
+#print margins.match("   margins   : 10.0, 20,  40,  50")
+#print margins.match("   margins   : 10.0")
+#print margins.match("   margins   : 10.0, 20.0")
+print position.match("    position  :   -.5,    bottom  ")
+print subst.match("""
+% sample comment
+	rect(10, 20, 30, 50) -> % and another
+	"text"
+	position: 60%, bottom
+	setwidth: this
+	setheight: #aabb
+""")
 
-#print scale.match("   scale: fit ")
-#print rect.match("   rect  (  10, 50,  10, 20 ) ")
-#print point.match("   point  (  10, 50 ) ")
-#print margins.match(  " margins: 10, 20, 40, 50  ")
-#print position.match("  position :  -.5, 100%  ")
-print subst.match('  rect(10, 20, 30, 50) -> "text" scale: 10, width ( #a51 ) ')
-
-# vim: ts=4 sw=4
+# vim: ts=4 sw=4 nowrap
