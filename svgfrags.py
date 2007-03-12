@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: svgfrags.py,v 1.7 2007-03-12 22:31:32 wojtek Exp $
+# $Id: svgfrags.py,v 1.8 2007-03-12 23:18:43 wojtek Exp $
 #
 # SVGfrags - main program
 #
@@ -47,6 +47,8 @@ from conv import dviparser
 from conv.binfile import binfile
 
 
+DEBUG = False
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('SVGfrags')
 
@@ -76,17 +78,18 @@ class EquationsManager(dvi2svg.SVGGfxDocument):
 			g.appendChild(element)
 
 
-		# (TESTING)
-		xmin, ymin, xmax, ymax = self.lastbbox
-		r = self.document.createElement('rect')
-		r.setAttribute('x', str(xmin))
-		r.setAttribute('y', str(ymin))
-		r.setAttribute('width', str(xmax - xmin))
-		r.setAttribute('height', str(ymax - ymin))
-		r.setAttribute('fill', 'none')
-		r.setAttribute('stroke', 'red')
-		r.setAttribute('stroke-width', '0.25')
-		g.appendChild(r)
+		# (DEBUG)
+		if DEBUG:
+			xmin, ymin, xmax, ymax = self.lastbbox
+			r = self.document.createElement('rect')
+			r.setAttribute('x', str(xmin))
+			r.setAttribute('y', str(ymin))
+			r.setAttribute('width', str(xmax - xmin))
+			r.setAttribute('height', str(ymax - ymin))
+			r.setAttribute('fill', 'none')
+			r.setAttribute('stroke', 'red')
+			r.setAttribute('stroke-width', '0.25')
+			g.appendChild(r)
 		#for
 	
 	def save(self, filename):
@@ -136,8 +139,8 @@ if __name__ == '__main__':
 	if not output_svg:
 		log.error("Output SVG file not provided, use switch -i or --output")
 		sys.exit(1)
-	elif os.path.exists(output_svg) and setup.options.frags_overwrite_file:
-		log.error("File %s already exists, and cannot be overwritten.  Use switch --force-overwrite to change this behaviour.", output_svg)
+	elif os.path.exists(output_svg) and not setup.options.frags_overwrite_file:
+		log.error("File %s already exists, and cannot be overwritten.  Use switch -f or --force-overwrite to change this behaviour.", output_svg)
 		sys.exit(1)
 
 
@@ -205,43 +208,54 @@ if __name__ == '__main__':
 	from frags.parse_subst import parse
 	repl_defs  = frags.Dict() # valid defs
 	text_nodes = set()        # text nodes to remove/hide
-	for item in parse(input):
-		((kind, value), tex, options) = item
+	try:
+		for item in parse(input):
+			((kind, value), tex, options) = item
 
-		if kind == 'string':
-			if setup.options.frags_strip:
-				value = value.strip()
+			if kind == 'string':
+				if setup.options.frags_strip:
+					value = value.strip()
 
-			try:
-				for node in text_objects[value]:
-					text_nodes.add(node)
-					repl_defs[tex] = ((kind, node), tex, options)
-			except KeyError:
-				log.warning("String '%s' doesn't found in SVG, skipping repl", value)
+				try:
+					for node in text_objects[value]:
+						text_nodes.add(node)
+						repl_defs[tex] = ((kind, node), tex, options)
+				except KeyError:
+					log.warning("String '%s' doesn't found in SVG, skipping repl", value)
 
-		elif kind == 'id':
-			object = XML.getElementById(value[1:])
-			if object:
-				if object.nodeName in ['rect', 'ellipse', 'circle']:
-					# "forget" id, save object
-					repl_defs[tex] = ((kind, object), tex, options)
-				elif object.nodeName == 'text':
-					repl_defs[tex] = (('string', object), tex, options)
+			elif kind == 'id':
+				object = XML.getElementById(value[1:])
+				if object:
+					if object.nodeName in ['rect', 'ellipse', 'circle']:
+						# "forget" id, save object
+						repl_defs[tex] = ((kind, object), tex, options)
+					elif object.nodeName == 'text':
+						repl_defs[tex] = (('string', object), tex, options)
+					else:
+						log.warning("Object with id=%s is not text, rect, ellipse nor circle - skipping repl", value)
 				else:
-					log.warning("Object with id=%s is not text, rect, ellipse nor circle - skipping repl", value)
-			else:
-				log.warning("Object with id=%s doesn't found in SVG, skipping repl", value)
+					log.warning("Object with id=%s doesn't found in SVG, skipping repl", value)
 
-		else: # point, rect -- no additional tests needed
-			repl_defs[tex] = item
+			else: # point, rect -- no additional tests needed
+				repl_defs[tex] = item
+	except frags.parser.SyntaxError, e:
+		log.error("Syntax error: %s", str(e))
+		sys.exit(1)
 
+	if not repl_defs:
+		log.info("No rules - bye.")
+		sys.exit()
 
 	# make tmp name based on hash input & timestamp of input_txt file
-	tmp_filename = "svgfrags-%08x-%08x" % (input.__hash__(), os.path.getmtime(input_txt))
+	tmp_filename = "svgfrags-%08x-%08x" % (
+		input.__hash__() & 0xffffffff, 
+		os.path.getmtime(input_txt)
+	)
 	if not os.path.exists(tmp_filename + ".dvi"):
 
 		# 3. prepare LaTeX source
 		tmp_lines = [
+			'\\batchmode',
 			'\\documentclass{article}',
 			'\\pagestyle{empty}'
 			'\\begin{document}',
@@ -258,9 +272,12 @@ if __name__ == '__main__':
 			tmp.write(line + "\n")
 		tmp.close()
 
-		os.system("latex %s.tex > /dev/null" % tmp_filename)
+		exitstatus = os.system("latex %s.tex" % tmp_filename)
+		if exitstatus:
+			log.error("LaTeX failed, check log file '%s.log'", tmp_filename)
+			sys.exit(2)
 	else:
-		log.info("File not changed, used existing DVI file (%s)", tmp_filename)
+		log.info("File %s not changed, used existing DVI file (%s)", input_txt, tmp_filename)
 
 
 	# 5. Load DVI
@@ -285,7 +302,7 @@ if __name__ == '__main__':
 			missing.append((k, fontname))
 
 	if missing:
-		log.error("There were some unavailable fonts, skipping file '%s'; list of missing fonts: %s" % (dvi.name, ", ".join("%d=%s" % kf for kf in missing)))
+		log.error("There were some unavailable fonts; list of missing fonts: %s" % (dvi.name, ", ".join("%d=%s" % kf for kf in missing)))
 		sys.exit(1)
 
 
@@ -319,7 +336,7 @@ if __name__ == '__main__':
 
 		if len(items) > 1:
 			# there are more then one referenco to this TeX object, so
-			# we have to **define** it, and # reference to it with <use>
+			# we have to **define** it, and then reference to, with <use>
 			eq_id    = 'svgfrags-%x' % eq_id_n
 			eq_id_n += 1
 			SVG.lastpage.setAttribute('id', eq_id)
@@ -329,6 +346,8 @@ if __name__ == '__main__':
 			equation = SVG.lastpage
 			eq_id = None
 
+		
+		# process
 		for ((kind, value), tex, options) in items:
 			px, py = options.position
 			
@@ -346,7 +365,7 @@ if __name__ == '__main__':
 			dy = ymax - ymin
 
 			if eq_id is not None:
-				# more then one reference, create new reference, node <use>
+				# more then one reference, create new node <use>
 				equation = XML.createElement('use')
 				equation.setAttributeNS('xlink', 'xlink:href', '#'+eq_id)
 
@@ -419,11 +438,15 @@ if __name__ == '__main__':
 				# get <text> object coords
 				x = frags.safe_float(object.getAttribute('x'))
 				y = frags.safe_float(object.getAttribute('y'))
-				c = XML.createElement("circle")
-				c.setAttribute("cx", str(x))
-				c.setAttribute("cy", str(y))
-				c.setAttribute("r",  "3")
-				c.setAttribute("fill", 'red')
+
+				# (DEBUG)
+				if DEBUG:
+					c = XML.createElement("circle")
+					c.setAttribute("cx", str(x))
+					c.setAttribute("cy", str(y))
+					c.setAttribute("r",  "3")
+					c.setAttribute("fill", 'red')
+					object.parentNode.insertBefore(c, object)
 
 				put_equation(x, y, sx, sy)
 
@@ -436,7 +459,6 @@ if __name__ == '__main__':
 
 				# insert equation into XML tree
 				object.parentNode.insertBefore(equation, object)
-				object.parentNode.insertBefore(c, object)
 
 
 			# explicity given point
@@ -561,7 +583,7 @@ if __name__ == '__main__':
 				if kind == 'rect':
 					XML.documentElement.appendChild(equation)
 				else: # kind == 'id'
-					# in case of existing objects, place them
+					# in case of existing object, place them
 					# just "above" them
 					pn = value.parentNode
 					if value == pn.lastChild:
@@ -571,13 +593,23 @@ if __name__ == '__main__':
 	#for
 
 	
-	# modify existing object according to options
-	if setup.options.frags_removetext:
+	# 9. modify replaced <text> nodes according to options
+	if setup.options.frags_removetext: # remove nodes
 		for node in text_nodes:
 			node.parentNode.removeChild(node)
-	elif setup.options.frags_hidetext:
+	elif setup.options.frags_hidetext: # hide nodes
 		for node in text_nodes:
 			node.setAttribute('display', 'none')
+
+
+	# 10. clean up
+	extensions = ['.aux', '.log']
+	if not setup.options.frags_keeptex:
+		extensions.append('.tex')
+	if not setup.options.frags_keepdvi:
+		extensions.append('.dvi')
+	for ext in extensions:
+		frags.remove_file(tmp_filename + ext)
 
 	SVG.save(output_svg)
 	
