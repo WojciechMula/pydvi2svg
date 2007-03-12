@@ -13,12 +13,13 @@
 
 """
 "string"|#id|rect(x,y,w,h)|point(x,y) -> "TeX"
-	position: x|center/c|left/l|right/r, y|center/c|top/t|bottom/b|
-	scale: number
-	settowidth: number|rectid|this
-	settoheight: number|rectid|this
-	fit
-	margin: number,[number,[number,number]]
+	position: (number|perc)|center/c|left/l|right/r, (number|perc)|center/c|top/t|bottom/b|
+	margin: numperc,[numperc,[numperc,numperc]]
+	scale:
+		fit | 
+		(number|perc|width(rectid)|height(rectid)), (number|perc|width(rectid)|height(rectid))
+	setwidth: number|rectid|this
+	setheight: number|rectid|this
 """
 
 import re
