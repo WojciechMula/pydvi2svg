@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: svgfrags.py,v 1.8 2007-03-12 23:18:43 wojtek Exp $
+# $Id: svgfrags.py,v 1.9 2007-03-13 20:55:37 wojtek Exp $
 #
 # SVGfrags - main program
 #
@@ -11,6 +11,12 @@
 # WWW   : http://wmula.republika.pl/
 
 """
+13.03.2007
+	- syntax chenges:
+	  * keyword "this" as source
+	- use frags.get_text, frags.get_anchor
+	- + cleanup 
+	- + traceback
 12.03.2007
 	- use new parser (frags/parser.py & frags/parse_subst.py)
 	- syntax changes:
@@ -32,9 +38,9 @@
 	- early tests
 """
 
+import sys, os, atexit
+
 import logging
-import sys
-import os
 import xml.dom.minidom
 
 import setup
@@ -44,7 +50,8 @@ import dvi2svg
 from conv import utils
 from conv import fontsel
 from conv import dviparser
-from conv.binfile import binfile
+from conv.findfile import which
+from conv.binfile  import binfile
 
 
 DEBUG = False
@@ -106,13 +113,10 @@ class EquationsManager(dvi2svg.SVGGfxDocument):
 		f.close()
 
 
-
-# SVGfrags options
-
-if __name__ == '__main__':
+def main(args):
 	from frags.cmdopts import parse_args
 
-	(setup.options, args) = parse_args()
+	(setup.options, args) = parse_args(args)
 	
 	# fixed options
 	setup.options.use_bbox  = True
@@ -172,34 +176,17 @@ if __name__ == '__main__':
 
 
 	# 1.2. find all text objects
-	text_objects = {}
-	for item in XML.getElementsByTagName('text'):
-		# use only raw text
-		if len(item.childNodes) != 1:
-			continue
-
-		# one tspan is allowed
-		if item.firstChild.nodeType == item.ELEMENT_NODE and \
-		   item.firstChild.tagName == 'tspan':
-		   	textitem = item.firstChild
-		else:
-			textitem = item
-
-		# text node needed
-		if textitem.firstChild.nodeType != item.TEXT_NODE:
-			continue
-
-		# strip whitespaces (if enabled)
-		if setup.options.frags_strip:
-			text = textitem.firstChild.wholeText.strip()
-		else:
-			text = textitem.firstChild.wholeText
-
-		# add to list
-		if text in text_objects:
-			text_objects[text].append(item)
-		else:
-			text_objects[text] = [item]
+	text_objects = {} # text -> node
+	for node in XML.getElementsByTagName('text'):
+		try:
+			text = frags.get_text(node, setup.options.frags_strip)
+			# add to list
+			if text in text_objects:
+				text_objects[text].append(node)
+			else:
+				text_objects[text] = [node]
+		except ValueError:
+			pass
 	#for
 
 	# 2. Load & parse replace pairs
@@ -211,6 +198,21 @@ if __name__ == '__main__':
 	try:
 		for item in parse(input):
 			((kind, value), tex, options) = item
+
+			if tex is None: # i.e. "this"
+				if kind == 'string':
+					if setup.options.frags_strip:
+						tex = value.strip()
+					else:
+						tex = value
+				elif kind == 'id':
+					node = XML.getElementById(value[1:])
+					if frags.istextnode(node):
+						tex = frags.get_text(node)
+
+			if tex is None:
+				log.error("Keyword 'this' is not allowed for rect/points object")
+				continue
 
 			if kind == 'string':
 				if setup.options.frags_strip:
@@ -226,8 +228,8 @@ if __name__ == '__main__':
 			elif kind == 'id':
 				object = XML.getElementById(value[1:])
 				if object:
+					# "forget" id, save object
 					if object.nodeName in ['rect', 'ellipse', 'circle']:
-						# "forget" id, save object
 						repl_defs[tex] = ((kind, object), tex, options)
 					elif object.nodeName == 'text':
 						repl_defs[tex] = (('string', object), tex, options)
@@ -237,8 +239,9 @@ if __name__ == '__main__':
 					log.warning("Object with id=%s doesn't found in SVG, skipping repl", value)
 
 			else: # point, rect -- no additional tests needed
-				repl_defs[tex] = item
-	except frags.parser.SyntaxError, e:
+				repl_defs[tex] = ((kind, value), tex, options)
+
+	except frags.parse_subst.SyntaxError, e:
 		log.error("Syntax error: %s", str(e))
 		sys.exit(1)
 
@@ -248,11 +251,12 @@ if __name__ == '__main__':
 
 	# make tmp name based on hash input & timestamp of input_txt file
 	tmp_filename = "svgfrags-%08x-%08x" % (
-		input.__hash__() & 0xffffffff, 
+		hash(input) & 0xffffffff, 
 		os.path.getmtime(input_txt)
 	)
-	if not os.path.exists(tmp_filename + ".dvi"):
+	atexit.register(cleanup, tmp_filename)
 
+	if not os.path.exists(tmp_filename + ".dvi"):
 		# 3. prepare LaTeX source
 		tmp_lines = [
 			'\\batchmode',
@@ -272,10 +276,14 @@ if __name__ == '__main__':
 			tmp.write(line + "\n")
 		tmp.close()
 
-		exitstatus = os.system("latex %s.tex" % tmp_filename)
-		if exitstatus:
-			log.error("LaTeX failed, check log file '%s.log'", tmp_filename)
-			sys.exit(2)
+		if which('latex'):
+			exitstatus = os.system("latex %s.tex > /dev/null" % tmp_filename)
+			if exitstatus:
+				log.error("LaTeX failed - error code %d; check log file '%s.log'", exitstatus, tmp_filename)
+				sys.exit(2)
+		else:
+			log.error("Program 'latex' isn't avaialable.")
+			sys.exit(3)
 	else:
 		log.info("File %s not changed, used existing DVI file (%s)", input_txt, tmp_filename)
 
@@ -350,6 +358,11 @@ if __name__ == '__main__':
 		# process
 		for ((kind, value), tex, options) in items:
 			px, py = options.position
+			if px == 'inherit':
+				if frags.istextnode(value):
+					px = frags.get_anchor(value)
+				else:
+					px = 0.0
 			
 			# bounding box of equation
 			(xmin, ymin, xmax, ymax) = SVG.lastbbox
@@ -601,8 +614,11 @@ if __name__ == '__main__':
 		for node in text_nodes:
 			node.setAttribute('display', 'none')
 
+	SVG.save(output_svg)
 
-	# 10. clean up
+
+def cleanup(tmp_filename):
+	"remove temporary files"
 	extensions = ['.aux', '.log']
 	if not setup.options.frags_keeptex:
 		extensions.append('.tex')
@@ -611,6 +627,18 @@ if __name__ == '__main__':
 	for ext in extensions:
 		frags.remove_file(tmp_filename + ext)
 
-	SVG.save(output_svg)
+
+if __name__ == '__main__':
+	import traceback
+	try:
+		main(sys.argv)
+	except SystemExit, (code):
+		sys.exit(code)
+	except:
+		if setup.options.print_traceback:
+			traceback.print_exc(file=sys.stderr)
+		else:
+			exception, instance, _ = sys.exc_info()
+			print >> sys.stderr, "Unexpeced error - %s: %s" % (exception.__name__, str(instance))
 	
 # vim: ts=4 sw=4 nowrap
