@@ -1,22 +1,19 @@
 "TeX & LaTeX" => "\TeX\ \& \LaTeX"
 	scale: 4
 
-"equation1" => "$\sin x + \cos y = 1$"
+"$\sin x + \cos x = 1$" => this
 	scale: 3
 
 "equation2" => "$f(x) = \frac{x^3 - 5}{x^2 + 4} \cdot \frac{1}{x}$"
 	scale: 3
 
-"left" => "left"
-	position: left
+"left" => this
 	scale: uniform, length 20
 
-"center" => "center"
-	position: center
+"center" => this
 	scale: uniform, length 20
 
-"right" => "right"
-	position: right
+"right" => this
 	scale: uniform, length 20
 
 "top" => "top"
