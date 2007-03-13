@@ -1,9 +1,11 @@
+
 ``SVGfrags``
 ------------------------------------------------------------------------
 
 ``SVGfrags`` is utility build on top of ``pydvi2svg``, that 
 includes pieces of TeX/LaTeX expressions into existing SVG file.
 It works similar to well known ``psfrags`` LaTeX package.
+
 
 User indicate SVG target by:
 
@@ -22,21 +24,84 @@ that we "enclose" expression in rectangles
 While text nodes are removed or hide, rectangles are not touched.
 
 
+Command line options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``-i``, ``--input``
+	SVG input file
+
+``-o``, ``--output``
+	SVG input file
+
+``-r``, ``--rules``
+	name of text file that contains replacement pairs;
+	see syntax__ below
+	
+	__ index.html#syntax
+
+``--no-strip``
+	By default leading & trailing spaces in strings (target string &
+	SVG text) are stripped - this options disabled it
+
+``--keep-tex``
+	Do not remove temporary TeX files (useful for debugging)
+
+``--keep-dvi``
+	Do not remove temporary DVI files;  if rules file are not changed,
+	then DVI existing files can be resued
+
+``--no-hide-text-obj``
+	By default replaced text nodes are hide, i.e. property
+	``display`` gets value ``none`` (Warning: rsvg ignores it...);
+	this option disables it
+
+``--remove-text-obj``
+	Remove replaced text nodes.
+
+``-f``, ``--force-overwrite``
+	By default ``SVGfrags`` do not overwrite existing files -
+	this option turns off protection.
+
+
+``SVGfrags`` accepts also following ``pydvi2svg`` options:
+
+* ``--enc``
+* ``--enc-repl``
+* ``--no-fontforge``
+* ``--no-fnt2meta``
+
+
+
 Syntax
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Warning**: Syntax is not frozen, it can change (I have some new
 ideas...).
 
+Overview::
+
+	"text to replace" -> "\LaTeX expression $x^2$"
+	#equation -> "$\sin x + \cos x = 1$"
+
+First we define, what to replace, then provide piece of LaTeX code.
+In the first line we tell ``SVGfrags``
+to replace all occurences of string **text to replace** with given
+latex expression (instad '->' you can use '=>' or '=').
+
+In second line we
+
+
 .. include:: frags/svgfrags_grammar.txt
 	:literal:
 
 
 position
-^^^^^^^^^^^^^^^^^^^^
+::::::::::::::::::::
 
-Parameter ``position`` tells where bounding box of TeX expression.
+Parameter ``position`` tells where to place TeX expression.  All
+calculations are done according to bounding box of expression.
 
+Position defines point inside bbox.
 
 
 
@@ -44,14 +109,14 @@ Default values: **0.0, 1.0**, i.e. ``left``, ``bottom``.
 
 
 margin
-^^^^^^^^^^^^^^^^^^^^
+::::::::::::::::::::
 
 Additional margins around bounding bbox of TeX exprssion.
 Applied **before** scalling!
 
 
 scale
-^^^^^^^^^^^^^^^^^^^^
+::::::::::::::::::::
 
 
 
@@ -59,10 +124,19 @@ scale
 Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. include:: samples/svgfrags-sample.txt
+Substitution list:
+	.. include:: samples/svgfrags-sample.txt
+	   :literal:
 
-.. image:: samples/svgfrags-sample.png
+Sample `source image <samples/svgfrags-sample.svg>`_ I've drawn in Inkscape_
+	.. image:: samples/svgfrags-sample.png
+	   :align: center
 
-.. image:: samples/svgfrags-sample-res.png
+`Result <samples/svgfrags-sample-res.svg>`_
+	.. image:: samples/svgfrags-sample-res.png
+	   :align: center
 
-.. image:: samples/svgfrags-sample-res-clean.txt
+`Result (marked bounding boxes and reference points of TeX expressions <samples/svgfrags-sample-debug.svg>`_ 
+	.. image:: samples/svgfrags-sample-debug.png
+	   :align: center
+

@@ -84,6 +84,7 @@ News
 	
 
 15.10.2006
+
 	New methods to determine encoding (see ``--enc-methods`` switch)
 
 __ fnt2meta.c
@@ -96,7 +97,7 @@ __ fnt2meta.c
 
 
 License
-~~~~~~~
+------------------------------------------------------------------------
 
 * Both **programs**, i.e. ``pydvi2svg`` & ``SVGfrags`` are licensed
   under BSD_ license.
@@ -105,7 +106,7 @@ License
 
 
 Remarks, errors, patches
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------------------------------------------------
 
 Please send to author any remarks, bugs, patches, questions, etc.:
 
