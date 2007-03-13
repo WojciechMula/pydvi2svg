@@ -1,6 +1,18 @@
+#!/usr/bin/python
+# -*- coding: iso-8859-2 -*-
+# $Id: cmdopts.py,v 1.6 2007-03-13 00:08:30 wojtek Exp $
+#
+# SVGfrags - command line parsing
+#
+# license: BSD
+#
+# author: Wojciech Mu³a
+# e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl/
+
+
 import optparse
 import conv.utils
-
 
 def parse_args(args=None):
 	parser = optparse.OptionParser()
@@ -22,7 +34,7 @@ def parse_args(args=None):
 
 	parser.add_option(
 		"-r", "--rules",
-		help	= "Name of text file that contains replacement rules",
+		help	= "Name of text file that contains replacement pairs",
 		dest	= "input_txt",
 		default	= ""
 	)
@@ -52,19 +64,19 @@ def parse_args(args=None):
 	)
 
 	parser.add_option(
-		"--remove-text-obj",
-		help	= "Remove from SVG replaced <text> nodes",
-		dest	= "frags_removetext",
-		action	= "store_true",
-		default	= False,
-	)
-
-	parser.add_option(
 		"--no-hide-text-obj",
 		help	= "Do not hide replaced <text> nodes.",
 		dest	= "frags_hidetext",
 		action	= "store_false",
 		default	= True,
+	)
+
+	parser.add_option(
+		"--remove-text-obj",
+		help	= "Remove from SVG replaced <text> nodes",
+		dest	= "frags_removetext",
+		action	= "store_true",
+		default	= False,
 	)
 
 	parser.add_option(
@@ -113,15 +125,6 @@ def parse_args(args=None):
 		dest  	= "use_fnt2meta",
 		action	= "store_false",
 		default	= True,
-	)
-
-	parser.add_option(
-		"--pretty-xml",
-		help	= "output nice formated XML, easy to read\
-		           (debugging purposes)",
-		dest  	= "prettyXML",
-		action	= "store_true",
-		default	= False,
 	)
 
 	if args is not None:
