@@ -2,7 +2,7 @@
                       pydvi2svg & SVGfrags
 ========================================================================
 
-Last update: 12.03.2007
+Last update: 13.03.2007
 
 .. contents:: Contents
 
@@ -10,9 +10,9 @@ Last update: 12.03.2007
 News
 ------------------------------------------------------------------------
 
-12.03.2007
+13.03.2007
 
-	* Beta version of SVGfrags!
+	* Beta version of ``SVGfrags``!
 	* **pl**: Na razie usuwam polsk± dokumentacjê, bo siê trochê
 	  zdezaktualizowa³a, a naprawdê s± ciekawsze rzeczy od jej
 	  pisania.
@@ -101,7 +101,7 @@ License
 
 * Both **programs**, i.e. ``pydvi2svg`` & ``SVGfrags`` are licensed
   under BSD_ license.
-* Fonts keep their licenses and copyrights.  I putted in here
+* Fonts keep their licenses and copyrights.  I putted them here
   in a other format to make user's live bit easier.
 
 
