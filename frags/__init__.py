@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: __init__.py,v 1.4 2007-03-13 00:06:52 wojtek Exp $
+# $Id: __init__.py,v 1.5 2007-03-13 20:47:40 wojtek Exp $
 #
 # SVGfrags - auxilary functions & classes
 #
@@ -12,6 +12,10 @@
 
 # changelog
 """
+13.03.2007
+	+ istextnode
+	+ get_text
+	+ get_anchor
 10.03.2007
 	+ remove_file
 	+ Dict
@@ -98,6 +102,47 @@ def collect_Id(XML, d={}):
 		except AttributeError: # no hasAttr
 			pass
 		collect_Id(object, d)
+
+
+def istextnode(node):
+	try:
+		return node.nodeName == 'text'
+	except AttributeError:
+		return False
+
+
+def get_text(node, strip=False):
+	if node.nodeName != 'text':
+		raise ValueError("Not a text node")
+	
+	# use only raw text
+	if len(node.childNodes) != 1:
+		raise ValueError("Text node has more then one child.")
+		
+	# one tspan is allowed
+	if node.firstChild.nodeType == node.ELEMENT_NODE and \
+	   node.firstChild.tagName == 'tspan':
+		textitem = node.firstChild
+	else:
+		textitem = node
+
+	# text node needed
+	if textitem.firstChild.nodeType != node.TEXT_NODE:
+		raise ValueError("Text node has no raw-text child.")
+
+	# strip whitespaces (if enabled)
+	if strip:
+		return textitem.firstChild.wholeText.strip()
+	else:
+		return textitem.firstChild.wholeText
+
+
+def get_anchor(node):
+	val = node.getAttribute("text-anchor") or \
+	      CSS_value(node, "text-anchor")
+	
+	px_lookup = {"start": 0.0, "middle": 0.5, "end": 1.0}
+	return px_lookup.get(val, 0.0) # default: "start"
 
 
 def CSS_value(object, property):
