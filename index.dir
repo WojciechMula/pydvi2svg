@@ -7,3 +7,5 @@ copy:	pydvi2svg.tar.bz2
 copy:	fnt2meta.c
 
 copy:	samples
+
+subd:	frags
