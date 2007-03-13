@@ -4,24 +4,147 @@
 
 ``SVGfrags`` is utility build on top of ``pydvi2svg``, that 
 includes pieces of TeX/LaTeX expressions into existing SVG file.
-It works similar to well known ``psfrags`` LaTeX package.
+It works similar to well known ``psfrags`` LaTeX package, but
+has some additional features.
+
+``SVGfrags`` is distributed with ``pydvi2svg``, see Installation__ section.
+
+__ index.html#installation
+
+Replacement rules have to be defined in separate file, and
+must follow this simple syntax::
+
+	SVG target => TeX expression [additional options]
+	% the same comment style as in (La)TeX
 
 
-User indicate SVG target by:
+You can see `detailed syntax`__, or **better** read next
+sections and take a look at example.
 
-* strings --- all occurences are replaced
-* ID of existing text nodes
-* points --- direct given coordinates
+__ frags/svgfrags_grammar.txt
 
-User can also place TeX expression within[1] rectangles:
 
-* ID of existing rectangle (and also circle/ellipse) nodes
-* direct given coordinats/size
+Brief overview
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-[1] In fact there is no limits --- but it is good to think
-that we "enclose" expression in rectangles
+``SVG target`` could be (case A):
 
-While text nodes are removed or hide, rectangles are not touched.
+- Quoted text phrase, for example ``"some text"`` --- all
+  occurrences of ``some text`` are **replaced** by adequate
+  *TeX expression*.
+- XML id attribute --- ``<text>`` node that has such id
+  is **replaced** with adequate *TeX expression*.
+- ``point(x, y)`` --- put *TeX expression* at arbitrary
+  position.
+
+
+Additionally ``SVG target`` could refer to rectangular area,
+where *TeX expression* is placed (case B):
+
+- XML id attribute refers to element ``<rect>``, ``<circle>``
+  or ``<ellipse>`` (bounding box of these objects are considered).
+- ``rect(x, y, width, height)`` --- arbitrary defined rectangle.
+
+
+*TeX expression* could be:
+
+- Quoted string, like ``"$\sin x + \cos x = 1$"``
+- Word ``this`` (unquoted!) --- if ``SVG target`` is text or
+  id refers to ``<text>`` node, then *TeX expression* gets
+  value of ``SVG target``.  In other words TeX expression
+  are read from SVG document.
+
+
+Additional options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``position``
+::::::::::::::::::::::::::::::
+
+Place *TeX expression* relative to ``SVG target`` object.
+
+Syntax::
+
+	position ::= px ["," py]
+
+By default ``px = 0.0`` (``inherit`` in case A) and ``py = 1.0``.
+
+Arguments ``px`` and ``py`` define point inside rectangle (bounding box
+of *TeX expression*, and also in target rectangle in case B). For
+example ``px = 0.5``, ``py = 0.5`` is center point; ``px = 0.0``,
+``py = 1.0`` --- left lower corner, and so on.
+
+``px`` and ``py`` can be:
+
+* number
+* percent, i.e. number followed by char '%'
+
+Some useful constants are also defined:
+
+* ``px`` --- ``center = 0.5``, ``left = 0.0``, ``right = 1.0``
+* ``py`` --- ``center = 0.5``, ``top = 0.0``, ``bottom = 1.0``
+
+
+**case A** --- ``SVG target`` points to **reference point** in document canvas
+	Point inside bbox of *TeX expression* is calculated and then
+	expression is moved to make this point and **reference** equal.
+
+	In this case ``px`` can have value ``inherit`` (default),
+	then ``px`` gets value (if possible) from SVG attribute
+	``text-anchor`` or from CSS style string. Value
+	``start = 0.0``, ``middle = 0.5`` and ``end = 1.0`` (see
+	`SVG spec`__ for more info about ``text-anchor``).
+
+	__ http://www.w3.org/TR/SVG/text.html#TextAnchorProperty
+
+
+**case B** --- ``SVG target`` points to **rectangular area**
+	Points inside bbox of *TeX expression* **and** target
+	rectangle are calculate and then expression is moved
+	to make these points equal.
+
+	For example if ``px = 0.5``, ``py = 0.5`` then *TeX
+	expression* is centered.
+
+
+``margins``
+::::::::::::::::::::::::::::::
+
+
+Additional margins around bounding box of *TeX expression*; applied
+**before** scaling.  Syntax:
+
+- ``margin: m`` --- left, right, top and bottom margin are equal ``m``
+- ``margin: mx, my`` --- left and right are equal ``mx``, top and bottom
+  margin are equal ``my``
+- ``margin: ml, mr, mt, mb`` --- all margins can have different value
+
+
+``scale``
+::::::::::::::::::::::::::::::
+
+Uniform or nonuniform scale of *TeX expression*.
+
+Syntax::
+
+	scale: "fit" | (sx ["," sy])
+
+Value ``fit`` is suitable only in case B --- *TeX expression* is
+uniformly scaled to fill a target rectangle.
+
+``sx``/``sy`` values:
+
+- number (scale factor)
+- percent (scale factor)
+- word ``uniform`` if we set just one scale direction but want
+  uniform scaling
+- word ``length`` followed by number --- set width/height
+  of *TeX expression* to exact value
+- ``width(#id)``/``height(#id)`` --- set width/height to
+  width or height of object with given id
+- ``width(this)``/``height(this)`` --- set width/height
+  to width or height of ``SVG target`` rectangle, thus valid
+  only in case B.
 
 
 Command line options
@@ -34,10 +157,7 @@ Command line options
 	SVG input file
 
 ``-r``, ``--rules``
-	name of text file that contains replacement pairs;
-	see syntax__ below
-	
-	__ index.html#syntax
+	name of text file that contains replacement pairs
 
 ``--no-strip``
 	By default leading & trailing spaces in strings (target string &
@@ -62,6 +182,10 @@ Command line options
 	By default ``SVGfrags`` do not overwrite existing files -
 	this option turns off protection.
 
+``--traceback``
+	In case of error it will print whole Python traceback, i.e.
+	tell where error occured;  it is useful just for debugging.
+
 
 ``SVGfrags`` accepts also following ``pydvi2svg`` options:
 
@@ -69,55 +193,6 @@ Command line options
 * ``--enc-repl``
 * ``--no-fontforge``
 * ``--no-fnt2meta``
-
-
-
-Syntax
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-**Warning**: Syntax is not frozen, it can change (I have some new
-ideas...).
-
-Overview::
-
-	"text to replace" -> "\LaTeX expression $x^2$"
-	#equation -> "$\sin x + \cos x = 1$"
-
-First we define, what to replace, then provide piece of LaTeX code.
-In the first line we tell ``SVGfrags``
-to replace all occurences of string **text to replace** with given
-latex expression (instad '->' you can use '=>' or '=').
-
-In second line we
-
-
-.. include:: frags/svgfrags_grammar.txt
-	:literal:
-
-
-position
-::::::::::::::::::::
-
-Parameter ``position`` tells where to place TeX expression.  All
-calculations are done according to bounding box of expression.
-
-Position defines point inside bbox.
-
-
-
-Default values: **0.0, 1.0**, i.e. ``left``, ``bottom``.
-
-
-margin
-::::::::::::::::::::
-
-Additional margins around bounding bbox of TeX exprssion.
-Applied **before** scalling!
-
-
-scale
-::::::::::::::::::::
-
 
 
 
