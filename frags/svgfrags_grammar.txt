@@ -1,22 +1,24 @@
-required:
+rule := target arrow source [options]
 
-1. ( quoted_string | #id | rect(x, y, w, h) | point(x, y) ),
-2. ( "->" | "=>" | "=" ),
-3. quoted_string
+target ::= (quoted_string | #id | rect | point)
+arrow  ::= ("->"|"=>"|"=")
+source ::= (quoted_string | "this")
 
-optional (order is important):
+rect   ::= "rect" "(" number "," number "," number "," number ")"
+point  ::= "point" "(" number "," number ")"
 
-4. "position"  ":" px ["," py]
-5. "scale"    ":" ("fit" | scaledim ["," scaledim])
-6. "margins"   ":" a  ["," b ["," c "," d]])
+options ::= [position] [margin] [scale]
 
-where:
+position ::= "position" ":" px ["," py]
+scale    ::= "scale"    ":" ("fit" | scaledim ["," scaledim])
+margin   ::= "margin"   ":" number ["," number ["," number "," number]]
 
-* px = number | perc | "center" | "c" | "left" | "l" | "right" | "r"
-* py = number | perc | "center" | "c" | "top" | "t" | "bottom" | "b"
-* scaledim = number |
-             perc |
-	     width "(" (#id | "this") ")" |
-	     height "(" (#id | "this") ")" |
-	     "uniform" |
-	     "length" number
+px ::= number | perc | "center" | "c" | "left" | "l" | "right" | "r"
+py ::= number | perc | "center" | "c" | "top" | "t" | "bottom" | "b"
+scaledim ::= number | perc | width | height | "uniform" | "length" number
+
+perc   ::= number "%"
+width  ::= "width"  "(" (#id | "this") ")"
+height ::= "height" "(" (#id | "this") ")"
+
+comment ::= "%" any number of chars NEWLINE
