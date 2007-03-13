@@ -1,3 +1,15 @@
+#!/usr/bin/python
+# -*- coding: iso-8859-2 -*-
+# $Id: __init__.py,v 1.4 2007-03-13 00:06:52 wojtek Exp $
+#
+# SVGfrags - auxilary functions & classes
+#
+# license: BSD
+#
+# author: Wojciech Mu³a
+# e-mail: wojciech_mula@poczta.onet.pl
+# WWW   : http://wmula.republika.pl/
+
 # changelog
 """
 10.03.2007
