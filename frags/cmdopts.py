@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: cmdopts.py,v 1.6 2007-03-13 00:08:30 wojtek Exp $
+# $Id: cmdopts.py,v 1.7 2007-03-13 20:48:52 wojtek Exp $
 #
 # SVGfrags - command line parsing
 #
@@ -10,6 +10,11 @@
 # e-mail: wojciech_mula@poczta.onet.pl
 # WWW   : http://wmula.republika.pl/
 
+# changelog
+"""
+13.03.2007
+	+ '--traceback'
+"""
 
 import optparse
 import conv.utils
@@ -83,6 +88,14 @@ def parse_args(args=None):
 		"-f", "--force-overwrite",
 		help	= "Overwrite existing file",
 		dest	= "frags_overwrite_file",
+		action	= "store_true",
+		default	= False,
+	)
+
+	parser.add_option(
+		"--traceback",
+		help	= "Print full error message",
+		dest	= "print_traceback",
 		action	= "store_true",
 		default	= False,
 	)
