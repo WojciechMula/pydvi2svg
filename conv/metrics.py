@@ -1,6 +1,5 @@
-#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: metrics.py,v 1.5 2007-03-12 23:30:34 wojtek Exp $
+# $Id: metrics.py,v 1.6 2007-03-13 21:04:15 wojtek Exp $
 #
 # pydvi2svg - reading TFM, MAP & AFM files
 #

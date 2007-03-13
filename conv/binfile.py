@@ -1,6 +1,5 @@
-#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: binfile.py,v 1.3 2007-03-12 23:30:33 wojtek Exp $
+# $Id: binfile.py,v 1.4 2007-03-13 21:04:15 wojtek Exp $
 #
 # pydvi2svg - extension to built-in file
 #

@@ -1,6 +1,5 @@
-#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: cmdopts.py,v 1.5 2007-03-13 13:41:52 wojtek Exp $
+# $Id: cmdopts.py,v 1.6 2007-03-13 21:04:15 wojtek Exp $
 #
 # pydvi2svg - command line parsing
 #

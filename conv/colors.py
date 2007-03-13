@@ -1,6 +1,5 @@
-#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: colors.py,v 1.4 2007-03-12 23:30:33 wojtek Exp $
+# $Id: colors.py,v 1.5 2007-03-13 21:04:15 wojtek Exp $
 #
 # pydvi2svg - process color.sty special
 #

@@ -1,6 +1,5 @@
-#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: encoding.py,v 1.7 2007-03-12 23:30:33 wojtek Exp $
+# $Id: encoding.py,v 1.8 2007-03-13 21:04:15 wojtek Exp $
 #
 # pydvi2svg - encoding and ENC file support
 #

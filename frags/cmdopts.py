@@ -1,6 +1,5 @@
-#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: cmdopts.py,v 1.7 2007-03-13 20:48:52 wojtek Exp $
+# $Id: cmdopts.py,v 1.8 2007-03-13 21:03:19 wojtek Exp $
 #
 # SVGfrags - command line parsing
 #

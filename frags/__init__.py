@@ -1,6 +1,5 @@
-#!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: __init__.py,v 1.5 2007-03-13 20:47:40 wojtek Exp $
+# $Id: __init__.py,v 1.6 2007-03-13 21:03:19 wojtek Exp $
 #
 # SVGfrags - auxilary functions & classes
 #
