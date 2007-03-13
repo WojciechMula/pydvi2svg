@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: cmdopts.py,v 1.4 2007-03-12 23:30:33 wojtek Exp $
+# $Id: cmdopts.py,v 1.5 2007-03-13 13:41:52 wojtek Exp $
 #
 # pydvi2svg - command line parsing
 #
@@ -12,6 +12,8 @@
 
 # changelog
 """
+13.03.2007
+	+ parse_pos_args
 11.03.2007
 	+ new
 """
@@ -21,6 +23,8 @@ import logging
 
 import utils
 import sys
+import os
+
 from paper_size import paper_size
 
 log = logging.getLogger('dvi2svg')
@@ -130,13 +134,13 @@ or bbox:L,R,T,B (all different)""",
 		default	= True,
 	)
 
-	parser.add_option(
-		"--generate-text",
-		help	= "expremimental: output text instead of glyphs",
-		dest  	= "generate_text",
-		action	= "store_true",
-		default	= False,
-	)
+#	parser.add_option(
+#		"--generate-text",
+#		help	= "expremimental: output text instead of glyphs",
+#		dest  	= "generate_text",
+#		action	= "store_true",
+#		default	= False,
+#	)
 
 	parser.add_option(
 		"--pretty-xml",
@@ -151,6 +155,58 @@ or bbox:L,R,T,B (all different)""",
 		return parser.parse_args(args)
 	else:
 		return parser.parse_args()
+
+
+def parse_pos_args(args):
+	"syntax: [DVI file [SVG file | dir]]+"
+	import findfile
+	
+	def preprocess(filename):
+		# directory? (output)
+		if os.path.isdir(filename):
+			return ('dir', filename)
+
+		# DVI file? (input)
+		dir, fname = os.path.split(filename)
+		if dir == '': dir = '.'
+		def dvipred(p, f):
+			return f==fname or \
+			       f==fname + '.dvi' or \
+			       f==fname + '.DVI' or \
+			       f==fname + '.Dvi'
+		dvi = findfile.find_file(dir, dvipred, enterdir=lambda p, l: False)
+		if dvi is not None:
+			return ('dvi', dvi)
+
+		# SVG file? (output)
+		if filename.lower().endswith('.svg'):
+			return ('svg', filename[:-4])
+
+		# none, skipping
+		log.info("File '%s' not found, skipping" % filename)
+		return None
+
+	tmp  = filter(bool, map(preprocess, args))
+	args = []
+
+	prev = tmp[0]
+	for curr in tmp[1:] + [('dvi', None)]:
+		t2, f2 = curr
+		t1, f1 = prev
+		prev   = curr
+
+		if t1 == 'dvi':
+			if t2 == 'svg':
+				args.append( (f1, f2) )
+			elif t2 == 'dir':
+				basename = os.path.split(utils.get_basename(f1))[1]
+				args.append( (f1, os.path.join(f2, basename)) )
+			else:
+				basename = os.path.split(utils.get_basename(f1))[1]
+				args.append( (f1, basename) )
+	
+	return args
+	
 
 
 def parse_scale(option, opt_str, value, parser):
