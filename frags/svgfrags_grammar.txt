@@ -13,7 +13,7 @@ position ::= "position" ":" px ["," py]
 scale    ::= "scale"    ":" ("fit" | scaledim ["," scaledim])
 margin   ::= "margin"   ":" number ["," number ["," number "," number]]
 
-px ::= number | perc | "center" | "c" | "left" | "l" | "right" | "r"
+px ::= number | perc | "center" | "c" | "left" | "l" | "right" | "r" | "inherit" | "i"
 py ::= number | perc | "center" | "c" | "top" | "t" | "bottom" | "b"
 scaledim ::= number | perc | width | height | "uniform" | "length" number
 
