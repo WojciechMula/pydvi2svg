@@ -78,23 +78,13 @@ Installation
 
 Following archives are needed:
 
-1. `pydvi2svg.tar.bz2 <pydvi2svg.tar.bz2>`_	--- source files
-2. `fonts.tar.bz2 <fonts.tar.bz2>`_			---  *Computer Modern* fonts converted to SVG 
-
-or:
-
-1. `pydvi2svg-full.tar.bz2 <pydvi2svg-full.tar.bz2>`_ --- both source & CM fonts
-
+1. `pydvi2svg.tar.bz2 <pydvi2svg.tar.bz2>`_	--- source files of ``pydvi2svg`` & ``SVGfrags``
+2. `fonts.tar.bz2 <fonts.tar.bz2>`_ ---  *Computer Modern* fonts converted to SVG 
 
 If you have them, then::
 
 	$ tar -xjf pydvi2svg.tar.bz2
 	$ tar -xjf fonts.tag.bz2
-
-or::
-
-	$ tar -xjf pydvi2svg-full.tar.bz2
-
 
 After correct installation directory tree should looks
 as follow::
@@ -107,11 +97,11 @@ as follow::
 	 +- enc             - set of *.enc files
 	 +- fonts
 	     |
-	     +- cm
+	     +- cm          - set of *.svg file
 
 
-Now you can create symbolic link do pydvi2svg.py in some directory
-listed from ``$PATH``, for example::
+Now you can create symbolic link to pydvi2svg.py (and/or svgfrags.py)
+in some directory listed from ``$PATH``, for example::
 
 	sudo ln -sf <full path to script>/dvi2svg.py /usr/local/bin/
 
