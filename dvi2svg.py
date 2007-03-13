@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: dvi2svg.py,v 1.32 2007-03-12 22:24:31 wojtek Exp $
+# $Id: dvi2svg.py,v 1.33 2007-03-13 13:41:08 wojtek Exp $
 #
 # pydvi2svg - main program
 #
@@ -12,6 +12,9 @@
 
 # changelog
 """
+13.03.2007:
+	- all cmdline parsing moved to conv/cmdopt.py
+	- text generating disabled
 12.03.2007
 	- disabled fntnum_recode (due to svgfrags conflict)
 11.03.2007
@@ -175,7 +178,7 @@ class SVGGfxDocument(object):
 		self.chars = []
 		self.rules = []
 
-	def put_char(self, h, v, fntnum, dvicode, color=None, next=False):
+	def put_char(self, putset, h, v, fntnum, dvicode, color=None):
 		try:
 			glyph, glyphscale, hadv = font.get_char(fntnum, dvicode)
 			assert glyph is not None, (fntnum, dvicode)
@@ -187,7 +190,7 @@ class SVGGfxDocument(object):
 		H  = self.scale * (h + self.oneinch)
 		V  = self.scale * (v + self.oneinch)
 
-		self.chars.append( (fntnum, dvicode, next, H, V, glyphscale, color) )
+		self.chars.append( (fntnum, dvicode, H, V, glyphscale, color) )
 		return hadv
 
 	def put_rule(self, h, v, a, b, color=None):
@@ -241,7 +244,7 @@ class SVGGfxDocument(object):
 		Y = []
 
 		# bbox of chars
-		for (fntnum, dvicode, next, H, V, glyphscale, color) in self.chars:
+		for (fntnum, dvicode, H, V, glyphscale, color) in self.chars:
 			try:
 				bbox = self.bbox_cache[fntnum, dvicode]
 			except KeyError:
@@ -305,20 +308,20 @@ class SVGGfxDocument(object):
 
 		elements = []
 
-		# (fntnum, dvicode, next, H, V, glyphscale, color)
+		# (fntnum, dvicode, H, V, glyphscale, color)
 
 		# group chars with same glyphscale
-		byglyphscale = group(self.chars, value=lambda x: x[5])
+		byglyphscale = group(self.chars, value=lambda x: x[4])
 		for (glyphscale, chars2) in byglyphscale:
 			g = self.document.createElement('g')
 			g.setAttribute('transform', 'scale(%s,%s)' % (s2s(glyphscale), s2s(-glyphscale) ))
 			elements.append(g)
 
 			# then group by V
-			byV = group(chars2, value=lambda x: x[4])
+			byV = group(chars2, value=lambda x: x[3])
 			for (V, chars3) in byV:
 
-				xo = chars3[0][3]/glyphscale # get X coords of first
+				xo = chars3[0][2]/glyphscale # get X coords of first
 				g1 = new('g')
 				g1.setAttribute('transform', 'translate(%s,%s)' %
 					(c2s(xo), c2s(-V/glyphscale))
@@ -328,11 +331,11 @@ class SVGGfxDocument(object):
 				for j, char in enumerate(chars3):
 					c = new('use')
 					g1.appendChild(c)
-
-					H       = char[3]
+						
+					H       = char[2]
 					fntnum  = char[0]
 					dvicode = char[1]
-					color   = char[6]
+					color   = char[5]
 					idref   = "#%02x%d" % (dvicode, fntnum)
 
 					c.setAttributeNS('xlink', 'xlink:href', idref)
@@ -401,11 +404,12 @@ class SVGGfxDocument(object):
 		f.close()
 
 
+'''
 class SVGTextDocument(SVGGfxDocument):
 	"""
 	Outputs text
 	"""
-	def put_char(self, h, v, fntnum, dvicode, color=None, next=False):
+	def put_char(self, h, v, fntnum, dvicode, color=None):
 		try:
 			glyph, glyphscale, hadv = font.get_char(fntnum, dvicode)
 			glyphname = font.get_char_name(fntnum, dvicode)
@@ -415,7 +419,7 @@ class SVGTextDocument(SVGGfxDocument):
 		H  = self.scale * (h + self.oneinch)
 		V  = self.scale * (v + self.oneinch)
 
-		self.chars.append( (H, V, fntnum, glyphname, next, color) )
+		self.chars.append( (H, V, fntnum, glyphname, color) )
 
 		# return horizontal advance
 		return hadv
@@ -443,7 +447,7 @@ class SVGTextDocument(SVGGfxDocument):
 
 		# 2. process chars
 
-		# (H, V, fntnum, glyphname, next, color)
+		# (H, V, fntnum, glyphname, color)
 		# group chars typeseted with the same font
 		byfntnum = group(self.chars, value=lambda x: x[2])
 		for (fntnum, char_list) in byfntnum:
@@ -467,7 +471,7 @@ class SVGTextDocument(SVGGfxDocument):
 			def output_char_string(list):
 				H     = list[0][0]
 				V     = list[0][1]
-				color = list[0][5]
+				color = list[0][4]
 				text  = ''.join([name_lookup[item[3]] for item in list])
 
 				node = new('text')
@@ -529,6 +533,7 @@ class SVGTextDocument(SVGGfxDocument):
 		f = open(filename, 'wb')
 		f.write(self.document.toxml(encoding="utf-8"))
 		f.close()
+'''
 
 
 def convert_page(dvi, document):
@@ -543,14 +548,13 @@ def convert_page(dvi, document):
 	prevcommand = None
 
 	while dvi:
-		prevcommand  = command
 		command, arg = DVI_token(dvi)
 
 		if command == 'put_char':
-			document.put_char(h, v, fntnum, arg, color)
+			document.put_char('put', h, v, fntnum, arg, color)
 
 		if command == 'set_char':
-			h += document.put_char(h, v, fntnum, arg, color, prevcommand==command)
+			h += document.put_char('set', h, v, fntnum, arg, color)
 
 		elif command == 'nop':
 			pass
@@ -616,7 +620,12 @@ def convert_page(dvi, document):
 logging.basicConfig(level=logging.INFO)
 
 if __name__ == '__main__':
+
+	# parse named args
 	(setup.options, args) = cmdopts.parse_args()
+
+	# parse positional args
+	args = cmdopts.parse_pos_args(args)
 
 	# set logging level
 	if setup.options.verbose:
@@ -630,52 +639,6 @@ if __name__ == '__main__':
 
 	# load & process information about encoding
 	font.preload(setup.options.enc_repl)
-
-	# process command line
-	def preprocess(filename):
-		# directory? (output)
-		if os.path.isdir(filename):
-			return ('dir', filename)
-
-		# DVI file? (input)
-		dir, fname = os.path.split(filename)
-		if dir == '': dir = '.'
-		def dvipred(p, f):
-			return f==fname or \
-			       f==fname + '.dvi' or \
-			       f==fname + '.DVI' or \
-			       f==fname + '.Dvi'
-		dvi = find_file(dir, dvipred, enterdir=lambda p, l: False)
-		if dvi is not None:
-			return ('dvi', dvi)
-
-		# SVG file? (output)
-		if filename.lower().endswith('.svg'):
-			return ('svg', filename[:-4])
-
-		# none, skipping
-		log.info("File '%s' not found, skipping" % filename)
-		return None
-
-	tmp  = filter(bool, map(preprocess, args))
-	args = []
-
-	prev = tmp[0]
-	for curr in tmp[1:] + [('dvi', None)]:
-		t2, f2 = curr
-		t1, f1 = prev
-		prev   = curr
-
-		if t1 == 'dvi':
-			if t2 == 'svg':
-				args.append( (f1, f2) )
-			elif t2 == 'dir':
-				basename = os.path.split(utils.get_basename(f1))[1]
-				args.append( (f1, os.path.join(f2, basename)) )
-			else:
-				basename = os.path.split(utils.get_basename(f1))[1]
-				args.append( (f1, basename) )
-
 
 	for filename, basename in args:
 
@@ -741,6 +704,7 @@ if __name__ == '__main__':
 		mag   = mag/1000.0 * setup.options.scale
 
 		if setup.options.generate_text:
+			raise NotImplementedError
 			SVGDocument = SVGTextDocument
 		else:
 			SVGDocument = SVGGfxDocument
