@@ -23,10 +23,10 @@ News
 	* Better, and I hope more obvious, command line parsing.  Now
 	  output file name or output directory can be set.  For example::
 
-	  	dvi2svg file.dvi                   # output: file.svg 
-		dvi2svg file.dvi test.svg          # output: test.svg
-		dvi2svg file.dvi dir/              # output: dir/file.svg
-		dvi2svg file.dvi dir/test.svg      # output: dir/test.svg
+	  	dvi2svg.py file.dvi                   # output: file.svg 
+		dvi2svg.py file.dvi test.svg          # output: test.svg
+		dvi2svg.py file.dvi dir/              # output: dir/file.svg
+		dvi2svg.py file.dvi dir/test.svg      # output: dir/test.svg
 	
 	* New option ``--always-number`` --- affects on output file name:
 	  append page number to output name even if **one** page is converted.
