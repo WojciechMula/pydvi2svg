@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-2 -*-
-# $Id: cmdopts.py,v 1.6 2007-03-13 21:04:15 wojtek Exp $
+# $Id: cmdopts.py,v 1.7 2007-03-14 20:00:36 wojtek Exp $
 #
 # pydvi2svg - command line parsing
 #
@@ -133,13 +133,13 @@ or bbox:L,R,T,B (all different)""",
 		default	= True,
 	)
 
-#	parser.add_option(
-#		"--generate-text",
-#		help	= "expremimental: output text instead of glyphs",
-#		dest  	= "generate_text",
-#		action	= "store_true",
-#		default	= False,
-#	)
+	parser.add_option(
+		"--generate-text",
+		help	= "expremimental: output text instead of glyphs",
+		dest  	= "generate_text",
+		action	= "store_true",
+		default	= False,
+	)
 
 	parser.add_option(
 		"--pretty-xml",
