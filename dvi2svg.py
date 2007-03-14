@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: dvi2svg.py,v 1.34 2007-03-14 20:00:10 wojtek Exp $
+# $Id: dvi2svg.py,v 1.35 2007-03-14 20:07:33 wojtek Exp $
 #
 # pydvi2svg - main program
 #
@@ -246,7 +246,7 @@ class SVGGfxDocument(object):
 		Y = []
 
 		# bbox of chars
-		for (fntnum, dvicode, H, V, glyphscale, color) in self.chars:
+		for (fntnum, dvicode, H, V, glyphscale, color, _) in self.chars:
 			try:
 				bbox = self.bbox_cache[fntnum, dvicode]
 			except KeyError:
