@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-2 -*-
-# $Id: dvi2svg.py,v 1.33 2007-03-13 13:41:08 wojtek Exp $
+# $Id: dvi2svg.py,v 1.34 2007-03-14 20:00:10 wojtek Exp $
 #
 # pydvi2svg - main program
 #
@@ -12,6 +12,8 @@
 
 # changelog
 """
+14.03.2007
+	- text generating reenabled
 13.03.2007:
 	- all cmdline parsing moved to conv/cmdopt.py
 	- text generating disabled
@@ -190,7 +192,7 @@ class SVGGfxDocument(object):
 		H  = self.scale * (h + self.oneinch)
 		V  = self.scale * (v + self.oneinch)
 
-		self.chars.append( (fntnum, dvicode, H, V, glyphscale, color) )
+		self.chars.append( (fntnum, dvicode, H, V, glyphscale, color, putset) )
 		return hadv
 
 	def put_rule(self, h, v, a, b, color=None):
@@ -404,55 +406,23 @@ class SVGGfxDocument(object):
 		f.close()
 
 
-'''
 class SVGTextDocument(SVGGfxDocument):
 	"""
 	Outputs text
 	"""
-	def put_char(self, h, v, fntnum, dvicode, color=None):
-		try:
-			glyph, glyphscale, hadv = font.get_char(fntnum, dvicode)
-			glyphname = font.get_char_name(fntnum, dvicode)
-		except KeyError:
-			return 0.0
+	def flush_chars(self):
+		new = self.document.createElement
+		s2s = self.scale2str
+		c2s = self.coord2str
+		
+		# (fntnum, dvicode, H, V, glyphscale, color, putset)
+		elements = []
 
-		H  = self.scale * (h + self.oneinch)
-		V  = self.scale * (v + self.oneinch)
-
-		self.chars.append( (H, V, fntnum, glyphname, color) )
-
-		# return horizontal advance
-		return hadv
-
-	def eop(self):
-		new  = self.document.createElement
-		scale2str = self.scale2str
-		coord2str = self.coord2str
-
-		page = new('g')
-		page.setAttribute('transform', 'scale(%s)' % str(self.mag))
-		self.svg.appendChild(page)
-
-		# 1. make rules (i.e. filled rectangles)
-		for (h,v, a, b, color) in self.rules:
-			rect = new('rect')
-			rect.setAttribute('x',      coord2str(self.scale * (h + self.oneinch)))
-			rect.setAttribute('y',      coord2str(self.scale * (v - a + self.oneinch)))
-			rect.setAttribute('width',  coord2str(self.scale * b))
-			rect.setAttribute('height', coord2str(self.scale * a))
-			if color:
-				rect.setAttribute('fill', color)
-
-			page.appendChild(rect)
-
-		# 2. process chars
-
-		# (H, V, fntnum, glyphname, color)
 		# group chars typeseted with the same font
-		byfntnum = group(self.chars, value=lambda x: x[2])
+		byfntnum = group(self.chars, value=lambda x: x[0])
 		for (fntnum, char_list) in byfntnum:
-			g = new('tspan')
-			page.appendChild(g)
+			g = new('g')
+			elements.append(g)
 
 			fnt   = font.get_font(fntnum)
 			style = "font-family:%s; font-size:%0.1fpt" % (fnt.fontfamily, fnt.designsize)
@@ -462,59 +432,61 @@ class SVGTextDocument(SVGGfxDocument):
 
 			g.setAttribute('style', style)
 
-			def isglyphknown(glyphname):
+			def isglyphknown(fntnum, dvicode):
 				try:
-					return bool(name_lookup[glyphname])
+					return bool(name_lookup[font.get_char_name(fntnum, dvicode)])
 				except KeyError:
 					return False
 
+			# (fntnum, dvicode, H, V, glyphscale, color, putset)
 			def output_char_string(list):
-				H     = list[0][0]
-				V     = list[0][1]
-				color = list[0][4]
-				text  = ''.join([name_lookup[item[3]] for item in list])
+				H     = list[0][2]
+				V     = list[0][3]
+				color = list[0][5]
+				text  = ''.join([name_lookup[font.get_char_name(item[0], item[1])] for item in list])
 
 				node = new('text')
 				if color:
-					node.setAttribute('style', 'fill:%s' % color)
+					node.setAttribute('fill', color)
 
-				node.setAttribute('x', coord2str(H))
-				node.setAttribute('y', coord2str(V))
+				node.setAttribute('x', c2s(H))
+				node.setAttribute('y', c2s(V))
 				node.appendChild(self.document.createTextNode(text))
 				return node
 
+			# (fntnum, dvicode, H, V, glyphscale, color, putset)
 			def output_char(char):
-				H     = char[0]
-				V     = char[1]
+				H     = char[2]
+				V     = char[3]
 				color = char[5]
-				text  = name_lookup[char[3]]
+				text  = name_lookup[font.get_char_name(char[0], char[1])]
 
 				node = new('text')
 				if color:
-					node.setAttribute('style', 'fill:%s' % color)
+					node.setAttribute('fill', color)
 
-				node.setAttribute('x', coord2str(H))
-				node.setAttribute('y', coord2str(V))
+				node.setAttribute('x', c2s(H))
+				node.setAttribute('y', c2s(V))
 				node.appendChild(self.document.createTextNode(text))
 				return node
 
 			# find unknown chars
-			for (known, char_list2) in group(char_list, lambda x: isglyphknown(x[3])):
+			for (known, char_list2) in group(char_list, lambda x: isglyphknown(x[0], x[1])):
 				if not known:
 					for char in char_list2:
-						H    = item[0]
-						V    = item[1]
+						H = char[2]
+						V = char[3]
 
 						node = new('text')
-						node.setAttribute('x', coord2str(H))
-						node.setAttribute('y', coord2str(V))
-						node.setAttribute('style', 'fill:red')
+						node.setAttribute('x', c2s(H))
+						node.setAttribute('y', c2s(V))
+						node.setAttribute('fill', 'red')
 						node.appendChild(self.document.createTextNode('?'))
 						g.appendChild(node)
 				else:
 					# group set_char commands
-					for (set_char, char_list3) in group(char_list2, lambda x: x[4]):
-						if set_char:
+					for (set_char, char_list3) in group(char_list2, lambda x: x[6]):
+						if set_char == 'set':
 							for (color, char_list4) in group(char_list3, lambda x: x[5]):
 								g.appendChild(output_char_string(char_list4))
 						else:
@@ -522,7 +494,8 @@ class SVGTextDocument(SVGGfxDocument):
 								g.appendChild(output_char(char))
 					#rof
 
-
+		self.chars = []
+		return elements
 		#rof
 
 	def save(self, filename):
@@ -533,7 +506,6 @@ class SVGTextDocument(SVGGfxDocument):
 		f = open(filename, 'wb')
 		f.write(self.document.toxml(encoding="utf-8"))
 		f.close()
-'''
 
 
 def convert_page(dvi, document):
@@ -548,13 +520,17 @@ def convert_page(dvi, document):
 	prevcommand = None
 
 	while dvi:
+		prevcommand  = command
 		command, arg = DVI_token(dvi)
 
 		if command == 'put_char':
 			document.put_char('put', h, v, fntnum, arg, color)
 
 		if command == 'set_char':
-			h += document.put_char('set', h, v, fntnum, arg, color)
+			if prevcommand == 'set_char':
+				h += document.put_char('set', h, v, fntnum, arg, color)
+			else:
+				h += document.put_char('put', h, v, fntnum, arg, color)
 
 		elif command == 'nop':
 			pass
@@ -704,7 +680,6 @@ if __name__ == '__main__':
 		mag   = mag/1000.0 * setup.options.scale
 
 		if setup.options.generate_text:
-			raise NotImplementedError
 			SVGDocument = SVGTextDocument
 		else:
 			SVGDocument = SVGGfxDocument
