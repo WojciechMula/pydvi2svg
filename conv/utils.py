@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-2 -*-
-# $Id: utils.py,v 1.7 2007-03-13 21:04:15 wojtek Exp $
+# $Id: utils.py,v 1.8 2007-03-14 20:01:20 wojtek Exp $
 #
 # pydvi2svg - some utils
 #
@@ -11,6 +11,8 @@
 
 # changelog
 """
+14.03.2007
+	- group_elements simplified
  6.03.2007
 	- +safe_float
  1.03.2007
@@ -29,27 +31,15 @@ def group_elements(seq, value=lambda x: x):
 	Groups adjecent elements that has some value.
 	Groups is a pair: common value, list of elements.
 	"""
-	if not seq:
-		return []
-
-	result = []
-	prev   = value(seq[0])
-	curr   = prev
-	group  = [seq[0]]
-
-	for i in xrange(1, len(seq)):
-		curr = value(seq[i])
-		if curr == prev:
-			group.append(seq[i])
+	def aux((vp, L), curr):
+		vc = value(curr)
+		if vc == vp:
+			L[-1][1].append(curr)
 		else:
-			result.append( (prev, group) )
-			group = [seq[i]]
-			prev  = curr
-	
-	if group:
-		result.append( (curr, group) )
-	
-	return result
+			L.append( (vc, [curr]) )
+		return (vc, L)
+
+	return reduce(aux, seq, (aux, []))[1]
 
 
 def parse_pagedef(string, min, max):
