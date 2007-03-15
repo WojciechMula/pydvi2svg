@@ -84,7 +84,7 @@ Following archives are needed:
 If you have them, then::
 
 	$ tar -xjf pydvi2svg.tar.bz2
-	$ tar -xjf fonts.tag.bz2
+	$ tar -xjf fonts.tar.bz2
 
 After correct installation directory tree should looks
 as follow::
@@ -97,7 +97,7 @@ as follow::
 	 +- enc             - set of *.enc files
 	 +- fonts
 	     |
-	     +- cm          - set of *.svg file
+	     +- cm          - set of *.svg files
 
 
 Now you can create symbolic link to pydvi2svg.py (and/or svgfrags.py)
