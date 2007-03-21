@@ -15,7 +15,7 @@ Replacement rules have to be defined in separate file, and
 must follow this simple syntax::
 
 	SVG target => TeX expression [additional options]
-	% the same comment style as in (La)TeX
+	% the same comments style as in (La)TeX
 
 
 You can see `detailed syntax`__, or **better** read next
@@ -67,7 +67,8 @@ Syntax::
 
 	position ::= px ["," py]
 
-By default ``px = 0.0`` (``inherit`` in case A) and ``py = 1.0``.
+By default ``py = 1.0`` and ``px = 0.0`` (case B) or ``px = inherit``
+(case A).
 
 Arguments ``px`` and ``py`` define point inside rectangle (bounding box
 of *TeX expression*, and also in target rectangle in case B). For
@@ -91,7 +92,7 @@ Some useful constants are also defined:
 
 	In this case ``px`` can have value ``inherit`` (default),
 	then ``px`` gets value (if possible) from SVG attribute
-	``text-anchor`` or from CSS style string. Value
+	``text-anchor`` or from CSS style string.  These values are
 	``start = 0.0``, ``middle = 0.5`` and ``end = 1.0`` (see
 	`SVG spec`__ for more info about ``text-anchor``).
 
@@ -100,7 +101,7 @@ Some useful constants are also defined:
 
 **case B** --- ``SVG target`` points to **rectangular area**
 	Points inside bbox of *TeX expression* **and** target
-	rectangle are calculate and then expression is moved
+	rectangle are calculated and then expression is moved
 	to make these points equal.
 
 	For example if ``px = 0.5``, ``py = 0.5`` then *TeX
@@ -117,7 +118,7 @@ Additional margins around bounding box of *TeX expression*; applied
 - ``margin: m`` --- left, right, top and bottom margin are equal ``m``
 - ``margin: mx, my`` --- left and right are equal ``mx``, top and bottom
   margin are equal ``my``
-- ``margin: ml, mr, mt, mb`` --- all margins can have different value
+- ``margin: ml, mr, mt, mb`` --- all margins can have different values
 
 
 ``scale``
@@ -132,19 +133,21 @@ Syntax::
 Value ``fit`` is suitable only in case B --- *TeX expression* is
 uniformly scaled to fill a target rectangle.
 
-``sx``/``sy`` values:
+Scale factor ``sx``/``sy`` values:
 
-- number (scale factor)
-- percent (scale factor)
-- word ``uniform`` if we set just one scale direction but want
-  uniform scaling
-- word ``length`` followed by number --- set width/height
-  of *TeX expression* to exact value
-- ``width(#id)``/``height(#id)`` --- set width/height to
-  width or height of object with given id
+- Number;
+- Percent;
+- Word ``uniform`` --- if just one scale direction is set and
+  uniform scaling is needed, then another direction have get this
+  value;   if both ``sx`` and ``sy`` has value ``uniform`` then 
+  no scale is applied;
+- Word ``length`` followed by number --- set width/height
+  of *TeX expression* to exact value;
+- ``width(#id)``/``height(#id)`` --- set width/height of
+  *TeX expression* to width or height of object with given id;
 - ``width(this)``/``height(this)`` --- set width/height
-  to width or height of ``SVG target`` rectangle, thus valid
-  only in case B.
+  of *TeX expression* to width or height of ``SVG target``
+  rectangle; valid only in case B.
 
 
 Command line options
@@ -161,30 +164,29 @@ Command line options
 
 ``--no-strip``
 	By default leading & trailing spaces in strings (target string &
-	SVG text) are stripped - this options disabled it
+	SVG text) are stripped --- this options disabled it
 
 ``--keep-tex``
 	Do not remove temporary TeX files (useful for debugging)
 
 ``--keep-dvi``
 	Do not remove temporary DVI files;  if rules file are not changed,
-	then DVI existing files can be resued
+	then DVI can be resued
 
 ``--no-hide-text-obj``
 	By default replaced text nodes are hide, i.e. property
-	``display`` gets value ``none`` (Warning: rsvg ignores it...);
-	this option disables it
+	``display`` gets value ``none`` --- this option disables it.
 
 ``--remove-text-obj``
 	Remove replaced text nodes.
 
 ``-f``, ``--force-overwrite``
-	By default ``SVGfrags`` do not overwrite existing files -
-	this option turns off protection.
+	By default ``SVGfrags`` do not overwrite existing
+	files --- this option turns off protection.
 
 ``--traceback``
-	In case of error it will print whole Python traceback, i.e.
-	tell where error occured;  it is useful just for debugging.
+	In case of error whole Python traceback is printed;
+	it is useful just for debugging.
 
 
 ``SVGfrags`` accepts also following ``pydvi2svg`` options:
