@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-2 -*-
-# $Id: binfile.py,v 1.4 2007-03-13 21:04:15 wojtek Exp $
+# $Id: binfile.py,v 1.5 2007-05-20 12:20:44 wojtek Exp $
 #
 # pydvi2svg - extension to built-in file
 #
@@ -11,6 +11,8 @@
 
 # changelog
 """
+ 20.05.2007
+    - imporoper method called - fixed
   6.10.2006
  	- moved from dviparser.py
  xx.09.2006
@@ -28,7 +30,7 @@ class binfile(file):
 			return data
 	
 	def uint8(self):
-		x = unpack('B', self.read(1))[0]
+		x = unpack('B', self._read(1))[0]
 		return x
 
 	def uint16(self):
