@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-2 -*-
-# $Id: path_element.py,v 1.7 2007-03-13 21:04:15 wojtek Exp $
+# $Id: path_element.py,v 1.8 2007-05-20 12:34:26 wojtek Exp $
 #
 # pydvi2svg - SVG path data parser & bbox calculate
 #
@@ -11,6 +11,8 @@
 
 # changelog
 """
+20.05.2007
+    - bug fixed in 'tokens.flag'
  8.03.2007
 	- bug fixed in 'tokens'
  7.03.2007
@@ -84,7 +86,7 @@ def tokens(d_attribute, tofloat=float):
 		except ValueError:
 			raise ValueError("Integer expeced, got '%s'" % flag)
 
-		if v == 0 and v == 1:
+		if v == 0 or v == 1:
 			return v
 		else:
 			raise ValueError("Flag must have value 0 or 1, got %d" % flag)
@@ -99,7 +101,7 @@ def tokens(d_attribute, tofloat=float):
 		if tmp in set_commands:
 			command = tmp
 		else:
-			# token not a command, get back
+			# token is not a command, get back
 			try: d.back()
 			except StopIteration:
 				raise ValueError("First element in path must be command.")
@@ -152,7 +154,7 @@ def path_iter(L, init_x=0.0, init_y=0.0, line_fn=None, ccurve_fn=None, qcurve_fn
 		if command == 'm':
 			(x,y) = param
 
-			# first 'm' is replaced to 'M'
+			# first 'm' is replaced with 'M'
 			if prevcomm == 'none':
 				cur_x = x
 				cur_y = y
@@ -261,18 +263,22 @@ def path_iter(L, init_x=0.0, init_y=0.0, line_fn=None, ccurve_fn=None, qcurve_fn
 
 		# relative smooth curveto
 		elif command == 's':
-			from sys import stderr
 			x2, y2 = param[0]
 			x, y   = param[1]
 
-			if prevcomm in ['c','C','s','S']:
+			if prevcomm in set(['c','C','s','S']):
 				x1 = cur_x - clast_x2
 				y1 = cur_y - clast_y2
 			else:
 				x1 = cur_x
 				y1 = cur_y
 
-			ccurve_fn( (cur_x, cur_y), (cur_x + x1, cur_y + y1), (cur_x + x2, cur_y + y2), (cur_x + x, cur_y + y))
+			ccurve_fn( 
+				(cur_x, cur_y),
+				(cur_x + x1, cur_y + y1),
+				(cur_x + x2, cur_y + y2),
+				(cur_x + x, cur_y + y)
+			)
 
 			clast_x2 = cur_x + x2
 			clast_y2 = cur_y + y2
@@ -284,7 +290,7 @@ def path_iter(L, init_x=0.0, init_y=0.0, line_fn=None, ccurve_fn=None, qcurve_fn
 			x2, y2 = param[0]
 			x, y   = param[1]
 
-			if prevcomm in ['c','C','s','S']:
+			if prevcomm in set(['c','C','s','S']):
 				x1 = cur_x - last_x2
 				y1 = cur_y - last_y2
 			else:
@@ -328,7 +334,7 @@ def path_iter(L, init_x=0.0, init_y=0.0, line_fn=None, ccurve_fn=None, qcurve_fn
 		# relative smooth curveto
 		elif command == 't':
 			(x,y) = param
-			if prevcomm in ['q','Q','t','T']:
+			if prevcomm in set(['q','Q','t','T']):
 				x1 = cur_x - qlast_x1
 				y1 = cur_y - qlast_y1
 			else:
@@ -345,7 +351,7 @@ def path_iter(L, init_x=0.0, init_y=0.0, line_fn=None, ccurve_fn=None, qcurve_fn
 		# absolute smooth curveto
 		elif command == 'T':
 			(x,y) = param
-			if prevcomm in ['q','Q','t','T']:
+			if prevcomm in set(['q','Q','t','T']):
 				x1 = cur_x - qlast_x1
 				y1 = cur_y - qlast_y1
 			else:
@@ -359,7 +365,7 @@ def path_iter(L, init_x=0.0, init_y=0.0, line_fn=None, ccurve_fn=None, qcurve_fn
 			cur_x = x
 			cur_y = y
 		
-		elif command in ['z', 'Z']:
+		elif command in set(['z', 'Z']):
 			# close current subpath
 			line_fn( (cur_x, cur_y), (mlast_x, mlast_y) )
 
