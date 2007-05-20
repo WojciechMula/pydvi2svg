@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-2 -*-
-# $Id: utils.py,v 1.8 2007-03-14 20:01:20 wojtek Exp $
+# $Id: utils.py,v 1.9 2007-05-20 12:38:19 wojtek Exp $
 #
 # pydvi2svg - some utils
 #
@@ -11,6 +11,8 @@
 
 # changelog
 """
+20.05.2007
+	- parse_pagedef: bug fixed
 14.03.2007
 	- group_elements simplified
  6.03.2007
@@ -96,7 +98,7 @@ def parse_pagedef(string, min, max):
 		else:
 			raise ValueError("Wrong syntax: %s" % item)
 	#rof
-	return list(set(result))
+	return sorted(set(result))
 
 
 def parse_enc_repl(string):
