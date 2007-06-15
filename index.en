@@ -124,7 +124,7 @@ For example::
 	dvi2svg.py file.dvi dir/              # output: dir/file.svg
 	dvi2svg.py file.dvi dir/test.svg      # output: dir/test.svg
 
-You can set as many inpup-output pairs as you want, for example::
+You can set as many input-output pairs as you want, for example::
 
 	dvi2svg.py file1.dvi file2.dvi output2.svg file3.dvi outputdir
 
