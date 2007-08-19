@@ -102,7 +102,7 @@ License
 * Both **programs**, i.e. ``pydvi2svg`` & ``SVGfrags`` are licensed
   under BSD_ license.
 * Fonts keep their licenses and copyrights.  I putted them here
-  in a other format to make user's live bit easier.
+  in a other format to make user's life bit easier.
 
 
 Remarks, errors, patches
