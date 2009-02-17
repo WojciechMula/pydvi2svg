@@ -1,5 +1,6 @@
 style:	style.css
-rest:	index.txt	index.en index.frags frags/svgfrags_grammar.txt samples/svgfrags-sample.txt
+rest:	index.txt
+	index.en index.frags frags/svgfrags_grammar.txt samples/svgfrags-sample.txt
 
 copy:	fonts.tar.bz2
 copy:	pydvi2svg.tar.bz2
