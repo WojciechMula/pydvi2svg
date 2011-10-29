@@ -13,8 +13,8 @@ News
 13.03.2007
 
 	* Beta version of ``SVGfrags``!
-	* **pl**: Na razie usuwam polsk± dokumentacjê, bo siê trochê
-	  zdezaktualizowa³a, a naprawdê s± ciekawsze rzeczy od jej
+	* **pl**: Na razie usuwam polskÄ… dokumentacjÄ™, bo siÄ™ trochÄ™
+	  zdezaktualizowaÅ‚a, a naprawdÄ™ sÄ… ciekawsze rzeczy od jej
 	  pisania.
 
 
@@ -110,7 +110,7 @@ Remarks, errors, patches
 
 Please send to author any remarks, bugs, patches, questions, etc.:
 
-	Wojciech Mu³a, wojciech_mula@poczta.onet.pl
+	Wojciech MuÅ‚a, wojciech_mula@poczta.onet.pl
 
 
 
