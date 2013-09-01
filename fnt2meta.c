@@ -12,12 +12,19 @@
  * Wojciech Mu³a
  * wojciech_mula@poczta.onet.pl
  *
+ * compilation:
+ *    gcc -I/usr/include/freetype2 -lfreetype fnt2meta -o your_favorite_name
+ *
+ * usage:
+ *    your_favorite_name path_to_font_file
+ *
  * pulic domain
- * last update: 16.10.2006
+ * last update: 2013-01-01
  */
 
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 #include <math.h>
 
 #include <ft2build.h>
@@ -28,70 +35,114 @@ int line_to(const FT_Vector*, void*);
 int conic_to(const FT_Vector*, const FT_Vector*, void*);
 int cubic_to(const FT_Vector*, const FT_Vector*, const FT_Vector*, void*);
 
+void print_error(char* msg, ...);
+void print_warn(char* msg, ...);
+int process_face(FT_Library library, char* name);
+
 #define MAX_GLYPH_NAME 256
 
 int main(int argc, char** argv) {
 	FT_Library	library;
-	FT_Face		face;
 	FT_Error	error;
-	FT_Outline_Funcs funcs;
-	
-	long int i;
-	char glyphname[MAX_GLYPH_NAME];
 
-	if (argc < 2)
-		/* not enought arguments */
-		return 1;
+	if (argc < 2) {
+		print_error("Not enought arguments");
+		return EXIT_FAILURE;
+	}
 
 	error = FT_Init_FreeType(&library);
-	if (error)
-		return 1;
+	if (error) {
+		print_error("Can't initialize FreeType library");
+		return EXIT_FAILURE;
+	}
 
-	error = FT_New_Face(library, argv[1], 0, &face);
-	if (error)
-		return 1;
 
-	/* process only fonts that defines glyph names */
-	if (FT_HAS_GLYPH_NAMES(face)) {
-		funcs.move_to	= move_to;
-		funcs.line_to	= line_to;
-		funcs.conic_to	= conic_to;
-		funcs.cubic_to	= cubic_to;
-		funcs.shift	 	= 0;
-		funcs.delta		= 0;
+	int ret = process_face(library, argv[1]) ? EXIT_SUCCESS : EXIT_FAILURE;
+	FT_Done_FreeType(library);
 
-		/* display family name */
-		printf("family %s\n", face->family_name);
+	return ret;
+}
 
-		for (i=0; i < face->num_glyphs; i++) {
-		  	error = FT_Load_Glyph(face, i, FT_LOAD_NO_SCALE);
-			if (error)
-				/* just skip glyph if error */
-				continue;
+int process_face(FT_Library library, char* path) {
+	FT_Error error;
+	FT_Face  face;
+	FT_Outline_Funcs funcs;
+	char glyphname[MAX_GLYPH_NAME];
+	int  i;
 
-			error = FT_Get_Glyph_Name(face, i, (FT_Pointer)glyphname, MAX_GLYPH_NAME);
-			if (error)
-				continue;
-
-			/* display font name */
-			printf("char %s\n", glyphname);
-			
-
-			/* display horiz andvance x */
-			printf("\tadv %ld\n", face->glyph->metrics.horiAdvance);
-
-			error = FT_Outline_Decompose(&(face->glyph->outline), &funcs, NULL);
-			printf("end\n");
-		}
-		FT_Done_Face(face);
-		FT_Done_FreeType(library);
+	error = FT_New_Face(library, path, 0, &face);
+	if (error) {
+		print_error("Can't read font '%s'", path);
 		return 0;
 	}
-	else {
+
+	/* process only fonts that defines glyph names */
+	if (!FT_HAS_GLYPH_NAMES(face)) {
 		FT_Done_Face(face);
-		FT_Done_FreeType(library);
-		return 1;
+		print_error("Font doesn't define glyph names");
+		return 0;
 	}
+
+	funcs.move_to	= move_to;
+	funcs.line_to	= line_to;
+	funcs.conic_to	= conic_to;
+	funcs.cubic_to	= cubic_to;
+	funcs.shift	 	= 0;
+	funcs.delta		= 0;
+
+	/* display family name */
+	printf("family %s\n", face->family_name);
+
+	for (i=0; i < face->num_glyphs; i++) {
+		error = FT_Load_Glyph(face, i, FT_LOAD_NO_SCALE);
+		if (error) {
+			/* just skip glyph if error */
+			print_warn("Can't read glyph #%d, skipped", i+1);
+			continue;
+		}
+
+		error = FT_Get_Glyph_Name(face, i, (FT_Pointer)glyphname, MAX_GLYPH_NAME);
+		if (error) {
+			print_warn("Can't read glyph name #%d, skipped", i+1);
+			continue;
+		}
+
+		/* display font name */
+		printf("char %s\n", glyphname);
+
+		/* display horiz andvance x */
+		printf("\tadv %ld\n", face->glyph->metrics.horiAdvance);
+
+		error = FT_Outline_Decompose(&(face->glyph->outline), &funcs, NULL);
+		printf("end\n");
+	}
+
+	FT_Done_Face(face);
+	return 1;
+}
+
+void print_error(char* msg, ...) {
+	va_list ap;
+
+	fputs("ERROR: ", stderr);
+
+	va_start(ap, msg);
+	vfprintf(stderr, msg, ap);
+	va_end(ap);
+
+	fputc('\n', stderr);
+}
+
+void print_warn(char* msg, ...) {
+	va_list ap;
+
+	fputs("WARNING: ", stderr);
+
+	va_start(ap, msg);
+	vfprintf(stderr, msg, ap);
+	va_end(ap);
+
+	fputc('\n', stderr);
 }
 
 /* outline callbacks **************************************************/
