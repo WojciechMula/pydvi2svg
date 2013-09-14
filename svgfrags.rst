@@ -199,9 +199,58 @@ Command line options
 Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Substitution list:
-	.. include:: samples/svgfrags-sample.txt
-	   :literal:
+`Substitution list`__::
+
+	"TeX & LaTeX" => "\TeX\ \& \LaTeX"
+		scale: 4
+
+	"$\sin x + \cos x = 1$" => this
+		scale: 3
+
+	"equation2" => "$f(x) = \frac{x^3 - 5}{x^2 + 4} \cdot \frac{1}{x}$"
+		scale: 3
+
+	"left" => this
+		scale: uniform, length 20
+
+	"center" => this
+		scale: uniform, length 20
+
+	"right" => this
+		scale: uniform, length 20
+
+	"top" => "top"
+		position: left, top
+		scale: uniform, length 20
+
+	"center2" => "center"
+		position: left, center
+		scale: uniform, length 20
+
+	"bottom" => "bottom"
+		position: left, bottom
+		scale: uniform, length 20
+
+	#title => "\LaTeX/\TeX\ \& \texttt{SVGfrags}"
+		position: center, center
+		margin: 1
+		scale: fit
+
+	#scaletowidth => "\[P(t) = \sum_{i=0}^n p_i B_i^n (t)\]"
+		scale: width(this)
+
+	#scaletoheight => "\[\frac{1}{\frac{1}{\frac{1}{x}}}\]"
+		position: 0.7
+		scale: uniform, height(this)
+
+	#nonuniform => "\[\frac{1}{x^2 + 1} + \frac{\sin x}{\log_2 x}\]"
+		scale: width(this), height(this)
+
+	#settowidth => "$\sin x$"
+		scale: width(#scaletowidth), height(#nonuniform)
+
+__ samples/svgfrags-sample.txt
+
 
 Sample `source image <samples/svgfrags-sample.svg>`_ I've drawn in Inkscape_
 	.. image:: samples/svgfrags-sample.png
