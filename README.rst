@@ -14,8 +14,8 @@ Documentation
 * `pydvi2svg`__
 * `SVGfrags`__
 
-__ doc/pydvi2svg.doc
-__ doc/svgfrags.doc
+__ pydvi2svg.rst
+__ svgfrags.rst
 
 License
 ------------------------------------------------------------------------
@@ -29,9 +29,7 @@ License
 Author
 ------------------------------------------------------------------------
 
-Please send to author any remarks, bugs, patches, questions, etc.:
-
-	Wojciech Muła, wojciech_mula@poczta.onet.pl
+Wojciech Muła, wojciech_mula@poczta.onet.pl
 
 
 
