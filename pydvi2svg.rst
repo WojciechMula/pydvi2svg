@@ -316,5 +316,8 @@ update file ``enc/enc.info`` (and of course drop
 me a line).
 
 
-..
-	vim: tw=72 ts=4 sw=4 noexpandtab
+.. _Fontforge:	http://fontforge.sourceforge.net/
+.. _Python:	    http://www.python.org/
+.. _SVG:	    http://www.w3.org/TR/SVG/
+.. _Inkscape:   http://www.inkscape.org/
+.. _BSD:        http://www.opensource.org/licenses/bsd-license.php

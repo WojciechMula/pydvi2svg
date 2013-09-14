@@ -7,9 +7,7 @@ includes pieces of TeX/LaTeX expressions into existing SVG file.
 It works similar to well known ``psfrags`` LaTeX package, but
 has some additional features.
 
-``SVGfrags`` is distributed with ``pydvi2svg``, see Installation__ section.
-
-__ index.html#installation
+``SVGfrags`` is distributed with ``pydvi2svg``.
 
 Replacement rules have to be defined in separate file, and
 must follow this simple syntax::
@@ -217,3 +215,4 @@ Sample `source image <samples/svgfrags-sample.svg>`_ I've drawn in Inkscape_
 	.. image:: samples/svgfrags-sample-debug.png
 	   :align: center
 
+.. _Inkscape:   http://www.inkscape.org/
