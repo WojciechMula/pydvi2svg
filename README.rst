@@ -2,9 +2,28 @@
                       pydvi2svg & SVGfrags
 ========================================================================
 
-Last update: 13.03.2007
+``pydvi2svg`` converts DVI files (output from TeX) to SVG vector graphics
 
-.. contents:: Contents
+``SVGfrags`` is utility build on top of ``pydvi2svg``, that 
+includes pieces of TeX/LaTeX expressions into existing SVG file.
+
+
+Documentation
+------------------------------------------------------------------------
+
+* `pydvi2svg`__
+* `SVGfrags`__
+
+__ doc/pydvi2svg.doc
+__ doc/svgfrags.doc
+
+License
+------------------------------------------------------------------------
+
+* Both **programs**, i.e. ``pydvi2svg`` & ``SVGfrags`` are licensed
+  under BSD_ license.
+* Fonts keep their licenses and copyrights.  I putted them here
+  in a other format to make user's life bit easier.
 
 
 News
@@ -91,18 +110,6 @@ __ fnt2meta.c
 .. _FreeType2:	http://www.freetype.org
 
 
-.. include:: index.en
-
-.. include:: index.frags
-
-
-License
-------------------------------------------------------------------------
-
-* Both **programs**, i.e. ``pydvi2svg`` & ``SVGfrags`` are licensed
-  under BSD_ license.
-* Fonts keep their licenses and copyrights.  I putted them here
-  in a other format to make user's life bit easier.
 
 
 Remarks, errors, patches
@@ -119,7 +126,3 @@ Please send to author any remarks, bugs, patches, questions, etc.:
 .. _SVG:	    http://www.w3.org/TR/SVG/
 .. _Inkscape:   http://www.inkscape.org/
 .. _BSD:        http://www.opensource.org/licenses/bsd-license.php
-
-
-..
-	vim: tw=72 ts=4 sw=4 noexpandtab
