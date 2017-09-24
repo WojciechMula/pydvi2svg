@@ -37,14 +37,15 @@ __ samples/sample1.dvi
 __ samples/sample10001.svg
 __ samples/sample10002.svg
 
-2. Article borrowed from polish Wikipedia about :plwiki:`Antykwa
-   Półtawskiego` --- the original polish font face.  Of course
+2. Article borrowed from polish Wikipedia about `Antykwa
+   Półtawskiego`__ --- the original polish font face.  Of course
    if you open SVG you will see this font "in action".
 
 	* TeX__
 	* DVI__
 	* SVG__
 
+__ https://pl.wikipedia.org/wiki/Antykwa_P%C3%B3%C5%82tawskiego
 __ samples/sample2.tex
 __ samples/sample2.dvi
 __ samples/sample20001.svg
@@ -178,9 +179,8 @@ You can set as many input-output pairs as you want, for example::
 
 	value:
 
-	* page format name, like A4, B3, etc. (see :enwiki:`Paper
-	  size|Wikipedia`); for example ``--paper-size A4``,
-	  ``--paper-size=B5``
+	* page format name, like A4, B3, etc. (see Wikipedia__);
+	  for example ``--paper-size A4``, ``--paper-size=B5``
 	* string ``query`` --- all known names are printed and program exits
 	* string ``bbox`` --- paper size is set to bounding box of page;
 	  additionaly margin around bbox can be set:
@@ -194,6 +194,8 @@ You can set as many input-output pairs as you want, for example::
 	  ``--paper-size=bbox:10,20,30,40``
 
 	Default value: **A4**
+
+__ https://en.wikipedia.org/wiki/Paper_size
 
 ``--always-number``
 	Append page number to output name even if **one** page
